@@ -86,8 +86,8 @@ public:
 
         gotoxy(originX, originY); cout << "+";
         for (int i = 0; i < MAX; i++) {
-            if (i < 5) setColor(9);
-            else setColor(12);
+            if (i < 5) setColor(9); // xanh
+            else setColor(12);      // đ?
             cout << "---+";
         }
         setColor(7);
@@ -113,12 +113,13 @@ public:
         int arrowY = originY + 3;
         int labelY = originY + 4;
 
-        int headX = originX + 2 + (top1 + 1) * 4;
+        int headX = originX - 2;               // luôn bên trái ô đ?u
+        int tailX = originX + 2 + MAX * 4;     // luôn bên ph?i ô cu?i
+
         setColor(9);
         gotoxy(headX, arrowY); cout << "^";
         gotoxy(headX - 2, labelY); cout << "pHead";
 
-        int tailX = originX + 2 + (top2 - 1) * 4;
         setColor(12);
         gotoxy(tailX, arrowY); cout << "^";
         gotoxy(tailX - 2, labelY); cout << "pTail";
@@ -187,4 +188,3 @@ int main() {
 
     return 0;
 }
-
