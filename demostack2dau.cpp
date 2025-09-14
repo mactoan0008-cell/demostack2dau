@@ -30,12 +30,22 @@ public:
 
     bool full() { return (top1 + 1 == top2); }
 
+    void showError(const string& msg) {
+    int errorX = 0;      // bên trái console
+    int errorY = 25;     // d?ng cu?i console (có th? tùy ch?nh)
+
+    setColor(12);
+    gotoxy(errorX, errorY);
+    cout << msg;
+    setColor(7);
+    Sleep(2000);         // hi?n 2 giây
+    gotoxy(errorX, errorY);
+    cout << "                                    "; // xóa thông báo
+}
+
     void pushLeft(int x) {
         if (full()) {
-            setColor(12);
-            gotoxy(0, 15); cout << "Error: Stack full!          ";
-            setColor(7);
-            Sleep(1000);
+            showError("Error: Stack full!");
             return;
         }
         arr[++top1] = x;
@@ -43,10 +53,7 @@ public:
 
     void pushRight(int x) {
         if (full()) {
-            setColor(12);
-            gotoxy(0, 15); cout << "Error: Stack full!          ";
-            setColor(7);
-            Sleep(1000);
+            showError("Error: Stack full!");
             return;
         }
         arr[--top2] = x;
@@ -54,10 +61,7 @@ public:
 
     void popLeft() {
         if (top1 < 0) {
-            setColor(12);
-            gotoxy(0, 15); cout << "Error: Left stack empty!    ";
-            setColor(7);
-            Sleep(1000);
+            showError("Error: Left stack empty!");
             return;
         }
         gotoxy(0, 15); cout << "Pop left: " << arr[top1--] << "           ";
@@ -65,10 +69,7 @@ public:
 
     void popRight() {
         if (top2 >= MAX) {
-            setColor(12);
-            gotoxy(0, 15); cout << "Error: Right stack empty!   ";
-            setColor(7);
-            Sleep(1000);
+            showError("Error: Right stack empty!");
             return;
         }
         gotoxy(0, 15); cout << "Pop right: " << arr[top2++] << "          ";
@@ -76,7 +77,7 @@ public:
 
     void drawUI() {
         system("cls");
-        cout << "\n           CHUONG TRINH DEMO STACK 2 DAU \n\n";
+        cout << "\n              CHUONG TRINH DEMO STACK 2 DAU \n\n";
 
         int originX = 10;
         int originY = 5;
@@ -86,8 +87,8 @@ public:
 
         gotoxy(originX, originY); cout << "+";
         for (int i = 0; i < MAX; i++) {
-            if (i < 5) setColor(9); // xanh
-            else setColor(12);      // đ?
+            if (i < 5) setColor(9);
+            else setColor(12);
             cout << "---+";
         }
         setColor(7);
@@ -96,7 +97,6 @@ public:
         for (int i = 0; i < MAX; i++) {
             if (i < 5) setColor(9);
             else setColor(12);
-
             if (i <= top1 || i >= top2) cout << setw(3) << arr[i] << "|";
             else cout << "   |";
         }
@@ -113,8 +113,8 @@ public:
         int arrowY = originY + 3;
         int labelY = originY + 4;
 
-        int headX = originX - 2;               // luôn bên trái ô đ?u
-        int tailX = originX + 2 + MAX * 4;     // luôn bên ph?i ô cu?i
+        int headX = originX - 2;
+        int tailX = originX + 2 + MAX * 4;
 
         setColor(9);
         gotoxy(headX, arrowY); cout << "^";
@@ -126,7 +126,6 @@ public:
 
         setColor(7);
 
-        // Menu
         gotoxy(0, labelY + 3);
         cout << "MENU:\n";
         cout << "1. Push left\n2. Push right\n3. Pop left\n4. Pop right\n5. Exit\n";
