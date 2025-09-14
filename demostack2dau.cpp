@@ -81,11 +81,9 @@ public:
         int originX = 10;
         int originY = 5;
 
-        // Tiêu đ? stack
         gotoxy(originX + 4, originY - 1); cout << "S1";
         gotoxy(originX + 24, originY - 1); cout << "S2";
 
-        // V? khung
         gotoxy(originX, originY); cout << "+";
         for (int i = 0; i < MAX; i++) {
             if (i < 5) setColor(9);
@@ -94,7 +92,6 @@ public:
         }
         setColor(7);
 
-        // V? giá tr?
         gotoxy(originX, originY + 1); cout << "|";
         for (int i = 0; i < MAX; i++) {
             if (i < 5) setColor(9);
@@ -105,7 +102,6 @@ public:
         }
         setColor(7);
 
-        // V? đáy
         gotoxy(originX, originY + 2); cout << "+";
         for (int i = 0; i < MAX; i++) {
             if (i < 5) setColor(9);
@@ -114,7 +110,6 @@ public:
         }
         setColor(7);
 
-        // M?i tên pHead/pTail
         int arrowY = originY + 3;
         int labelY = originY + 4;
 
@@ -192,3 +187,4 @@ int main() {
 
     return 0;
 }
+
