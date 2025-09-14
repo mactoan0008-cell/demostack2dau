@@ -32,13 +32,13 @@ public:
 
     void showError(const string& msg) {
     int errorX = 0;      // bên trái console
-    int errorY = 25;     // d?ng cu?i console (có th? tùy ch?nh)
+    int errorY = 25;     // dòng cuối console
 
     setColor(12);
     gotoxy(errorX, errorY);
     cout << msg;
     setColor(7);
-    Sleep(2000);         // hi?n 2 giây
+    Sleep(2000);         // hiệnhiện 2 giây
     gotoxy(errorX, errorY);
     cout << "                                    "; // xóa thông báo
 }
@@ -187,3 +187,4 @@ int main() {
 
     return 0;
 }
+
