@@ -1,14 +1,157 @@
+#include "thuvienlogic.h"
+#include <QDebug>
+#include <QDate>
+#include <algorithm>
 
 // =================================================================
-// ===                  MODULE: ĐẦU SÁCH                         ===
+// ===           1. CÁC HÀM TIỆN ÍCH HỖ TRỢ CHUNG               ===
 // =================================================================
 
+// --- XỬ LÝ CHUỖI ---
+string XoaKhoangTrangDauCuoi(string s){
+    while (!s.empty() && isspace(s.front())) s.erase(s.begin());
+    while (!s.empty() && isspace(s.back())) s.pop_back();
+    return s;
+}
+
+string XoaKhoangTrangThua(string s){
+    string res; bool space = false;
+    for (char c : s){
+        if (isspace(c)){
+            if (!space){ res += ' '; space = true; }
+        } else {
+            res += c; space = false;
+        }
+    }
+    return XoaKhoangTrangDauCuoi(res);
+}
+
+string ChuanHoaChuoi(string s) {
+    s = XoaKhoangTrangThua(s);
+    for (size_t i = 0; i < s.length(); i++) s[i] = tolower(s[i]);
+    if (!s.empty()) s[0] = toupper(s[0]);
+    for (size_t i = 1; i < s.length(); i++) {
+        if (isspace(s[i-1]) && isalpha(s[i])) s[i] = toupper(s[i]);
+    }
+    return s;
+}
+
+string ToLower(string s) {
+    for (char &c : s) c = tolower(c);
+    return s;
+}
+
+// Tìm kiếm chuỗi con (Dùng cho tìm kiếm sách theo tên)
+bool Timkiem_ChuoiCon(const string& Chuoi_Chinh, const string& Chuoi_Con){
+    if (Chuoi_Con.empty()) return true;
+    if (Chuoi_Chinh.length() < Chuoi_Con.length()) return false;
+    int n = Chuoi_Chinh.length(); int m = Chuoi_Con.length();
+    for (int i = 0; i <= n - m; ++i){
+        bool khop = true;
+        for (int j = 0; j < m; ++j){
+            if (Chuoi_Chinh[i + j] != Chuoi_Con[j]){
+                khop = false; break;
+            }
+        }
+        if (khop) return true;
+    }
+    return false;
+}
+
+// --- XỬ LÝ NGÀY THÁNG (Cần cho Module Thống Kê Quá Hạn) ---
+Date LayNgayHienTai() {
+    time_t t = time(0);
+    tm* now = localtime(&t);
+    Date d;
+    d.d = now->tm_mday;
+    d.m = now->tm_mon + 1;
+    d.y = now->tm_year + 1900;
+    return d;
+}
+
+bool La_Nam_Nhuan(int nam){
+    return (nam % 4 == 0 && nam % 100 != 0) || (nam % 400 == 0);
+}
+
+int So_Ngay_Trong_Thang(int m, int y){
+    switch(m){
+    case 1: case 3: case 5: case 7: case 8: case 10: case 12: return 31;
+    case 4: case 6: case 9: case 11: return 30;
+    case 2: return La_Nam_Nhuan(y) ? 29 : 28;
+    }
+    return 0;
+}
+
+void Doi_Ngay_Thang_Nam(Date &date){
+    int n = So_Ngay_Trong_Thang(date.m, date.y);
+    while(date.d > n){
+        date.d -= n;
+        date.m += 1;
+        if(date.m > 12){ date.m = 1; date.y += 1; }
+        n = So_Ngay_Trong_Thang(date.m, date.y);
+    }
+}
+
+// Kiểm tra xem ngày mượn đã quá hạn chưa (So với ngày hiện tại)
+bool KTQuaHan(Date &ngayMuon){
+    Date today = LayNgayHienTai();
+    Date hanTra = ngayMuon;
+    hanTra.d += 7; // Cộng 7 ngày hạn
+    Doi_Ngay_Thang_Nam(hanTra);
+
+    if(today.y > hanTra.y) return true;
+    if(today.y == hanTra.y && today.m > hanTra.m) return true;
+    if(today.y == hanTra.y && today.m == hanTra.m && today.d > hanTra.d) return true;
+    return false;
+}
+
+// Tính số ngày chênh lệch (Dùng để tính số ngày quá hạn)
+int Tinh_Khoang_Cach_Ngay(Date ngayTruoc, Date ngaySau) {
+    QDate qTruoc(ngayTruoc.y, ngayTruoc.m, ngayTruoc.d);
+    QDate qSau(ngaySau.y, ngaySau.m, ngaySau.d);
+    return qTruoc.daysTo(qSau);
+}
+
+void Swap(nodeDG* &a, nodeDG* &b){
+    nodeDG* tmp=a; a=b; b=tmp;
+}
+
 // =================================================================
-// 1. CÁC HÀM HỖ TRỢ (HELPER FUNCTIONS)
+// ===           2. KHỞI TẠO & QUẢN LÝ DỮ LIỆU                  ===
 // =================================================================
 
-// Tìm con trỏ Đầu Sách dựa vào mã ISBN.
-// Dùng con trỏ để khi tìm thấy trả về địa chỉ gốc của cuốn sách trong bộ nhớ.
+ThuVienLogic::ThuVienLogic(QObject *parent) : QObject{parent}
+{
+    this->dsDocGia = NULL;
+    this->dsds.n = 0;
+}
+
+ThuVienLogic::~ThuVienLogic()
+{
+    // Chỉ giải phóng vùng nhớ Sách
+    GiaiPhongDanhSachDauSach();
+    // (Phần giải phóng cây độc giả đã lược bỏ)
+}
+
+void ThuVienLogic::KhoiTaoVaTaiDuLieu()
+{
+    // Chỉ tải dữ liệu Sách (Module Độc Giả bị lược bỏ phần CRUD nhưng vẫn cần load để thống kê)
+    // this->TaiFileDocGia(); // (Giữ lại nếu muốn chạy Thống kê thực tế)
+    this->TaiFileDauSach();
+    qDebug() << "Da tai xong du lieu Sach.";
+}
+
+void ThuVienLogic::LuuDuLieuKhiThoat()
+{
+    this->LuuFileDauSach();
+}
+
+// =================================================================
+// ===           3. MODULE QUẢN LÝ SÁCH                         ===
+// =================================================================
+
+// --- Các hàm tìm kiếm & Tiện ích nội bộ ---
+
 DauSach* ThuVienLogic::TimDauSachTheoISBN(string isbn) {
     for (int i = 0; i < this->dsds.n; i++) {
         if (this->dsds.nodes[i]->ISBN == isbn) return this->dsds.nodes[i];
@@ -16,16 +159,16 @@ DauSach* ThuVienLogic::TimDauSachTheoISBN(string isbn) {
     return NULL;
 }
 
-// Logic so sánh để sắp xếp: Ưu tiên Thể loại -> Sau đó đến Tên sách
+// Logic: Ưu tiên Thể loại -> Tên sách
 bool ThuVienLogic::SoSanhTheoTheLoaiVaTen(DauSach* a, DauSach* b) {
     if (a->theloai < b->theloai) return true;
     if (a->theloai == b->theloai && a->tensach < b->tensach) return true;
     return false;
 }
 
+// Tìm số đuôi lớn nhất để sinh mã tự động (VD: ISBN-005 -> trả về 5)
 int ThuVienLogic::LaySoThuTuLonNhat(DauSach* dauSach) {
     int soLonNhat = 0;
-    //Vòng lặp duyệt dslk
     for (nodeSach* p = dauSach->firstDMS; p != NULL; p = p->next) {
         string maDayDu = p->sach.MASACH;
         size_t viTriGachCuoi = maDayDu.find_last_of('-');
@@ -40,33 +183,23 @@ int ThuVienLogic::LaySoThuTuLonNhat(DauSach* dauSach) {
     return soLonNhat;
 }
 
-// Quy định vị trí kệ sách dựa trên tên Thể loại
 string ThuVienLogic::LayViTriTheoTheLoai(string theLoai) {
     string tl = ChuanHoaChuoi(theLoai);
-    if (tl == "Tin Học" || tl == "Công Nghệ Thông Tin" || tl == "Lập Trình") return "Kệ A - Tầng 1 (Khu IT)";
-    if (tl == "Văn Học" || tl == "Tiểu Thuyết" || tl == "Truyện Ngắn") return "Kệ B - Tầng 1 (Khu Văn Học)";
-    if (tl == "Toán Học" || tl == "Khoa Học Tự Nhiên") return "Kệ C - Tầng 2 (Khu KHTN)";
-    if (tl == "Ngoại Ngữ" || tl == "Tiếng Anh") return "Kệ D - Tầng 2 (Khu Ngoại Ngữ)";
-    if (tl == "Truyện Tranh" || tl == "Manga") return "Kệ E - Tầng 1 (Khu Giải Trí)";
-    if (tl == "Kinh Tế" || tl == "Tài Chính") return "Kệ F - Tầng 2 (Khu Kinh Tế)";
-    if (tl == "Tâm Lí Học" || tl == "Kỹ Năng Sống" || tl == "Tâm Lý") return "Kệ G - Tầng 1 (Khu Kỹ Năng)";
+    if (tl == "Tin Học" || tl == "Công Nghệ Thông Tin") return "Kệ A - Tầng 1 (Khu IT)";
+    if (tl == "Văn Học" || tl == "Tiểu Thuyết") return "Kệ B - Tầng 1 (Khu Văn Học)";
+    // ... (Các kệ khác)
     return "Kệ Kho Tổng Hợp";
 }
 
 int ThuVienLogic::DemSoSachCon(DauSach* ds) {
     if (ds == NULL) return 0;
     int dem = 0;
-    for (nodeSach* p = ds->firstDMS; p != NULL; p = p->next) {
-        dem++;
-    }
+    for (nodeSach* p = ds->firstDMS; p != NULL; p = p->next) dem++;
     return dem;
 }
 
-// =================================================================
-// 2. CHỨC NĂNG CHÍNH: QUẢN LÝ ĐẦU SÁCH (THÊM, SỬA)
-// =================================================================
+// --- CÁC HÀM NGHIỆP VỤ CHÍNH (THÊM, XÓA, SỬA ĐẦU SÁCH) ---
 
-// Thêm đầu sách mới (Có sắp xếp chèn ngay khi thêm)
 bool ThuVienLogic::ThemDauSach(string isbn, string tenSach, string tacGia, string theLoai, int soTrang, int namXB) {
     if (dsds.n >= MAX_DAUSACH) {
         emit guiThongBao("Lỗi: Bộ nhớ danh sách đầy!");
@@ -85,16 +218,14 @@ bool ThuVienLogic::ThemDauSach(string isbn, string tenSach, string tacGia, strin
     pMoi->theloai = ChuanHoaChuoi(theLoai);
     pMoi->sotrang = soTrang;
     pMoi->namxb = namXB;
-    pMoi->firstDMS = NULL;// chưa có sách con 
+    pMoi->firstDMS = NULL;
     pMoi->luotmuon = 0;
 
-    // 2. Tìm vị trí chèn (Insertion Sort)-câu d 
+    // 2. Chèn có sắp xếp (Insertion Sort)
     int pos = 0;
     while (pos < dsds.n && dsds.nodes[pos]->tensach < pMoi->tensach) {
         pos++;
     }
-
-    // 3. Dời mảng và chèn
     for (int i = dsds.n; i > pos; i--) {
         dsds.nodes[i] = dsds.nodes[i - 1];
     }
@@ -106,7 +237,6 @@ bool ThuVienLogic::ThemDauSach(string isbn, string tenSach, string tacGia, strin
     return true;
 }
 
-// Hiệu chỉnh thông tin đầu sách
 bool ThuVienLogic::HieuChinhDauSach(string isbn, string tenSach, string tacGia, string theLoai, int soTrang, int namXB)
 {
     DauSach* dauSachCanSua = TimDauSachTheoISBN(isbn);
@@ -114,14 +244,13 @@ bool ThuVienLogic::HieuChinhDauSach(string isbn, string tenSach, string tacGia, 
         emit guiThongBao("Lỗi: Không tìm thấy ISBN để sửa!");
         return false;
     }
-
     dauSachCanSua->tensach = ChuanHoaChuoi(tenSach);
     dauSachCanSua->tacgia = ChuanHoaChuoi(tacGia);
     dauSachCanSua->theloai = ChuanHoaChuoi(theLoai);
     dauSachCanSua->sotrang = soTrang;
     dauSachCanSua->namxb = namXB;
 
-    // Sau khi sửa tên, cần sắp xếp lại mảng (Bubble Sort đơn giản vì mảng đã gần như có thứ tự)
+    // Sắp xếp lại sau khi sửa tên (Bubble Sort)
     for (int i = 0; i < this->dsds.n - 1; ++i) {
         for (int j = 0; j < this->dsds.n - i - 1; ++j) {
             if (this->dsds.nodes[j+1]->tensach < this->dsds.nodes[j]->tensach) {
@@ -129,57 +258,45 @@ bool ThuVienLogic::HieuChinhDauSach(string isbn, string tenSach, string tacGia, 
             }
         }
     }
-
     emit duLieuDauSachThayDoi();
     emit guiThongBao("Đã cập nhật đầu sách thành công!");
     return true;
 }
-// Hàm trả về: 1 (Thành công), 0 (Không tìm thấy), -1 (Đang có người mượn)
+
 int ThuVienLogic::XoaDauSach(string isbn) {
-    // 1. Tìm vị trí đầu sách
     int pos = -1;
     for (int i = 0; i < dsds.n; i++) {
-        if (dsds.nodes[i]->ISBN == isbn) {
-            pos = i;
-            break;
-        }
+        if (dsds.nodes[i]->ISBN == isbn) { pos = i; break; }
     }
+    if (pos == -1) return 0;
 
-    if (pos == -1) return 0; // Không tìm thấy
-
-    // 2. Kiểm tra an toàn: Có ai đang mượn không?
+    // Kiểm tra sách đang mượn
     PTRDMS pCheck = dsds.nodes[pos]->firstDMS;
     while (pCheck != NULL) {
-        if (pCheck->sach.trangthai == SACH_DANG_MUON) {
-            return -1; // Đang có người mượn -> Cấm xóa
-        }
+        if (pCheck->sach.trangthai == SACH_DANG_MUON) return -1;
         pCheck = pCheck->next;
     }
 
-    // 3. Dọn dẹp: Xóa sạch các sách con (Dùng PTRDMS)
+    // Xóa sách con
     PTRDMS k = dsds.nodes[pos]->firstDMS;
     while (k != NULL) {
         PTRDMS temp = k;
         k = k->next;
-        delete temp; // Giải phóng bộ nhớ
+        delete temp;
     }
 
-    // 4. Xóa đầu sách
+    // Xóa đầu sách và dời mảng
     delete dsds.nodes[pos];
-
-    // 5. Dời mảng
     for (int i = pos; i < dsds.n - 1; i++) {
         dsds.nodes[i] = dsds.nodes[i + 1];
     }
     dsds.n--;
 
-    // 6. Cập nhật giao diện
     emit duLieuDauSachThayDoi();
     return 1;
 }
-// =================================================================
-// 3. CHỨC NĂNG PHỤ: QUẢN LÝ SÁCH CON (DMS)
-// =================================================================
+
+// --- QUẢN LÝ SÁCH CON (KHO) ---
 
 void ThuVienLogic::ThemSachCon(string isbn, int soLuongCanThem, string& dsMaSachTao) {
     DauSach* dauSach = TimDauSachTheoISBN(isbn);
@@ -187,136 +304,94 @@ void ThuVienLogic::ThemSachCon(string isbn, int soLuongCanThem, string& dsMaSach
 
     string viTriKeSach = LayViTriTheoTheLoai(dauSach->theloai);
     int soThuTuHienTai = LaySoThuTuLonNhat(dauSach);
-    // Dùng tail tìm xem cuốn sách nào đang nằm cuối(tail là cái đuôi)
-    // Ví dụ: tail đang ở vị trí A kiểm tra "tail-> next" là (B) ,
-    //        tail đang ở vị trí B kiểm tra "tail ->next" là NULL => B là đang là cuốn sách cuối cùng.
+    
+    // Tìm đuôi
     nodeSach* tail = dauSach->firstDMS;
     if (tail != NULL) {
-        while (tail->next != NULL) {
-            tail = tail->next;
-        }
+        while (tail->next != NULL) tail = tail->next;
     }
 
     for (int i = 0; i < soLuongCanThem; i++) {
         soThuTuHienTai++;
-
-        // 1. Tạo node mới
         nodeSach* p = new nodeSach;
 
-        // 2. Sinh mã sách: ISBN + "-" + 000X-câu 
+        // Sinh mã: ISBN + "-" + 000X
         string duoiMaSach = to_string(soThuTuHienTai);
         while (duoiMaSach.length() < 4) duoiMaSach = "0" + duoiMaSach;
 
-        // 3. Gán dữ liệu
         p->sach.MASACH = isbn + "-" + duoiMaSach;
         p->sach.trangthai = SACH_CHO_MUON;
         p->sach.vitri = viTriKeSach;
-        p->next = NULL;// vị trí cuối cùng.
+        p->next = NULL;
 
-        // 4. Nối vào danh sách
-        // Nếu chưa có gì: Cái mới vừa là Đầu vừa là Đuôi.
         if (dauSach->firstDMS == NULL) {
             dauSach->firstDMS = p;
             tail = p;
-            // Nếu có rồi: Đuôi cũ móc vào cái Mới -> Cái Mới trở thành Đuôi.
         } else {
             tail->next = p;
             tail = p;
         }
-
         dsMaSachTao += p->sach.MASACH + " ";
     }
     emit duLieuDauSachThayDoi();
 }
+
 int ThuVienLogic::XoaBotSachTrongKho(string isbn, int soLuongCanXoa) {
-    // 1. Tìm đầu sách
     DauSach* ds = TimDauSachTheoISBN(isbn);
     if (ds == NULL || ds->firstDMS == NULL) return 0;
-
     int daXoa = 0;
 
-    // 2. Vòng lặp: Xóa từng cuốn một cho đến khi đủ số lượng
     while (daXoa < soLuongCanXoa) {
         nodeSach* p = ds->firstDMS;
         nodeSach* prev = NULL;
         bool timThayDeXoa = false;
 
         while (p != NULL) {
-            // ĐIỀU KIỆN XÓA: Sách trong kho (0) hoặc Đã thanh lý (2)
-            // TUYỆT ĐỐI KHÔNG XÓA SÁCH ĐANG MƯỢN (1)
-            if (p->sach.trangthai == 0 || p->sach.trangthai == 2) {
-
-                // Thực hiện xóa node khỏi DSLK đơn
-                if (p == ds->firstDMS) {
-                    ds->firstDMS = p->next; // Xóa đầu
-                } else {
-                    prev->next = p->next;   // Xóa giữa/cuối
-                }
+            // Chỉ xóa sách trong kho hoặc đã thanh lý
+            if (p->sach.trangthai == SACH_CHO_MUON || p->sach.trangthai == SACH_THANH_LY) {
+                if (p == ds->firstDMS) ds->firstDMS = p->next;
+                else prev->next = p->next;
 
                 delete p;
-
                 timThayDeXoa = true;
                 daXoa++;
                 break;
             }
-
-            // Đang được độc giả mượn sách => tiến tới cuốn khác
             prev = p;
             p = p->next;
         }
-
-        // Nếu duyệt cả danh sách mà không tìm thấy cuốn nào xóa được
-        if (!timThayDeXoa) {
-            break;
-        }
+        if (!timThayDeXoa) break;
     }
-
     return daXoa;
 }
-// Hàm trả về chuỗi mô tả trạng thái để hiển thị
+
 string ThuVienLogic::ChuyenTrangThaiThanhChu(int trangthai) {
     if (trangthai == SACH_CHO_MUON) return "Cho mượn được";
     if (trangthai == SACH_DANG_MUON) return "Đang mượn";
     if (trangthai == SACH_THANH_LY) return "Đã thanh lý";
-    return "Lỗi/Không rõ";
+    return "Lỗi";
 }
 
-int ThuVienLogic::LayTrangThaiSach(string isbn, string maSach) {
-    DauSach* ds = TimDauSachTheoISBN(isbn);
-    if (ds == NULL) return -1;
-
-    for (nodeSach* p = ds->firstDMS; p != NULL; p = p->next) {
-        if (p->sach.MASACH == maSach) {
-            return p->sach.trangthai;
-        }
-    }
-    return -1;
-}
-// Cập nhật trạng thái sách thành thanh lý
 bool ThuVienLogic::ThanhLySach(string isbn, string maSach) {
     DauSach* ds = TimDauSachTheoISBN(isbn);
     if (ds == NULL) return false;
-
     nodeSach* p = ds->firstDMS;
     while (p != NULL) {
         if (p->sach.MASACH == maSach) {
             if (p->sach.trangthai == SACH_CHO_MUON) {
                 p->sach.trangthai = SACH_THANH_LY;
                 return true;
-            } else {
-                return false; // Đang mượn hoặc đã thanh lý rồi
             }
+            return false;
         }
         p = p->next;
     }
     return false;
 }
 
-// Cập nhật vị trí kệ sách cho một cuốn cụ thể
 bool ThuVienLogic::CapNhatViTriSach(string isbn, string maSach, string vitriMoi) {
     DauSach* ds = TimDauSachTheoISBN(isbn);
     if (ds == NULL) return false;
-
     nodeSach* p = ds->firstDMS;
     while (p != NULL) {
         if (p->sach.MASACH == maSach) {
@@ -328,21 +403,17 @@ bool ThuVienLogic::CapNhatViTriSach(string isbn, string maSach, string vitriMoi)
     return false;
 }
 
-// =================================================================
-// 4. CHỨC NĂNG TÌM KIẾM VÀ HIỂN THỊ
-// =================================================================
+// --- TÌM KIẾM & HIỂN THỊ ---
 
-// Lấy danh sách đầu sách (có hỗ trợ sắp xếp theo thể loại)-câu d 
 void ThuVienLogic::LayDanhSachDauSach(DauSach* mangDauSach[], int &soLuong, bool sapXepTheoTheLoai) {
     soLuong = 0;
     for (int i = 0; i < this->dsds.n; ++i) {
         mangDauSach[i] = this->dsds.nodes[i];
     }
     soLuong = this->dsds.n;
-    // Nếu tham số sapXepTheoTheLoai là TRUE thì mới bắt đầu sắp xếp
     if(soLuong == 0 || !sapXepTheoTheLoai) return;
 
-    // Bubble Sort để sắp xếp theo Thể loại -> Tên
+    // Bubble Sort: Thể loại -> Tên
     for (int i = 0; i < soLuong - 1; ++i) {
         for (int j = 0; j < soLuong - i - 1; ++j) {
             if (SoSanhTheoTheLoaiVaTen(mangDauSach[j + 1], mangDauSach[j])) {
@@ -352,29 +423,20 @@ void ThuVienLogic::LayDanhSachDauSach(DauSach* mangDauSach[], int &soLuong, bool
     }
 }
 
-// Tìm kiếm tương đối theo tên sách
 void ThuVienLogic::TimSachTheoTen(string tuKhoa, DauSach* ketQua[], int &soLuongKQ) {
     soLuongKQ = 0;
     tuKhoa = ToLower(ChuanHoaChuoi(tuKhoa));
     if (tuKhoa.empty()) return;
-
     for (int i = 0; i < this->dsds.n; i++) {
-        DauSach* ds = this->dsds.nodes[i];
-        string tenSach = ToLower(ds->tensach);
-
+        string tenSach = ToLower(this->dsds.nodes[i]->tensach);
         if (Timkiem_ChuoiCon(tenSach, tuKhoa)){
-            if(soLuongKQ < MAX_DAUSACH) {
-                ketQua[soLuongKQ++] = ds;
-            }
+            if(soLuongKQ < MAX_DAUSACH) ketQua[soLuongKQ++] = this->dsds.nodes[i];
         }
     }
 }
 
-// =================================================================
-// 5. FILE I/O (ĐỌC - GHI FILE)
-// =================================================================
+// --- FILE I/O (SÁCH) ---
 
-// Hàm hỗ trợ ghi 1 đầu sách và các sách con của nó
 void ThuVienLogic::GhiDauSachVaoFile(ofstream &fout, DauSach* ds) {
     if (ds == NULL) return;
     fout << ds->ISBN << "|" << ds->tensach << "|" << ds->sotrang << "|" << ds->tacgia << "|" << ds->namxb << "|" << ds->theloai << "|" << ds->luotmuon << endl;
@@ -386,7 +448,6 @@ void ThuVienLogic::GhiDauSachVaoFile(ofstream &fout, DauSach* ds) {
     fout << endl;
 }
 
-// Lưu toàn bộ danh sách ra file
 void ThuVienLogic::LuuFileDauSach() {
     ofstream fout("DauSach.txt");
     if (!fout) { emit guiThongBao("Lỗi: Không thể mở file DauSach.txt"); return; }
@@ -394,29 +455,22 @@ void ThuVienLogic::LuuFileDauSach() {
         GhiDauSachVaoFile(fout, dsds.nodes[i]);
     }
     fout.close();
-    qDebug() << "Đã lưu danh sách đầu sách.";
 }
 
 void ThuVienLogic::TaiFileDauSach() {
     ifstream fin("DauSach.txt");
     if(!fin) return;
-
     string line;
     DauSach* currentDS = nullptr;
-    nodeSach* currentTail = nullptr; // <--- KHAI BÁO THÊM BIẾN NÀY ĐỂ GIỮ ĐUÔI
+    nodeSach* currentTail = nullptr;
 
     while (getline(fin, line)) {
-        if (line.empty()) {
-            currentDS = nullptr;
-            continue;
-        }
-
+        if (line.empty()) { currentDS = nullptr; continue; }
         int soDauPhay = 0;
         for (char c : line) if (c == '|') soDauPhay++;
         stringstream ss(line);
 
-        // TRƯỜNG HỢP 1: ĐỌC THÔNG TIN ĐẦU SÁCH
-        if (soDauPhay == 6) {
+        if (soDauPhay == 6) { // Load đầu sách
             currentDS = new DauSach; string token;
             getline(ss, currentDS->ISBN, '|');
             getline(ss, currentDS->tensach, '|');
@@ -427,59 +481,138 @@ void ThuVienLogic::TaiFileDauSach() {
             getline(ss, token, '|'); currentDS->luotmuon = stoi(token);
 
             currentDS->tensach = ChuanHoaChuoi(currentDS->tensach);
-            currentDS->tacgia = ChuanHoaChuoi(currentDS->tacgia);
-            currentDS->theloai = ChuanHoaChuoi(currentDS->theloai);
             currentDS->firstDMS = NULL;
-
-            // Đưa đầu sách vào mảng
             dsds.nodes[dsds.n++] = currentDS;
-
-            // QUAN TRỌNG: Reset đuôi khi qua đầu sách mới
             currentTail = nullptr;
         }
-        // TRƯỜNG HỢP 2: ĐỌC THÔNG TIN SÁCH CON (DMS)
-        else if (soDauPhay == 2 && currentDS != nullptr) {
+        else if (soDauPhay == 2 && currentDS != nullptr) { // Load sách con
             nodeSach* newSach = new nodeSach; string token;
             getline(ss, newSach->sach.MASACH, '|');
             getline(ss, token, '|'); newSach->sach.trangthai = stoi(token);
             getline(ss, newSach->sach.vitri, '|');
+            newSach->next = NULL;
 
-            newSach->next = NULL; // Node mới luôn trỏ vào NULL (vì nó nằm cuối)
-
-            // --- LOGIC SỬA ĐỔI: THÊM VÀO CUỐI (AddTail) ---
             if (currentDS->firstDMS == NULL) {
-                // Nếu danh sách rỗng: Đầu là node mới, Đuôi cũng là node mới
                 currentDS->firstDMS = newSach;
                 currentTail = newSach;
             } else {
-                // Nếu đã có danh sách: Nối đuôi cũ vào node mới
                 currentTail->next = newSach;
-                currentTail = newSach; // Cập nhật đuôi
+                currentTail = newSach;
             }
         }
     }
     fin.close();
-    qDebug() << "Da tai " << dsds.n << " dau sach.";
 }
-
-// =================================================================
-// 6. DỌN DẸP BỘ NHỚ (DESTRUCTOR HELPER)
-// =================================================================
 
 void ThuVienLogic::GiaiPhongDanhSachDauSach() {
     for (int i = 0; i < dsds.n; i++) {
         if (dsds.nodes[i] != nullptr) {
-            // Giải phóng Danh sách liên kết sách con
             PTRDMS p = dsds.nodes[i]->firstDMS;
             while (p != nullptr) {
-                PTRDMS temp = p;
-                p = p->next;
-                delete temp;
+                PTRDMS temp = p; p = p->next; delete temp;
             }
-            // Giải phóng struct đầu sách
             delete dsds.nodes[i];
             dsds.nodes[i] = nullptr;
         }
     }
     dsds.n = 0;
+}
+
+// =================================================================
+// ===           4. MODULE THỐNG KÊ (LOGIC)                     ===
+// =================================================================
+
+// Hàm đệ quy duyệt cây độc giả để tìm sách quá hạn
+// (Cần cấu trúc cây độc giả nhưng không cần chức năng Thêm/Xóa độc giả)
+void Duyet_DG_Muon_QuaHan(treeDG root, DocGiaQuaHan mangKetQua[], int& soLuong, Date mocThoiGian) {
+    if (root == NULL) return;
+    Duyet_DG_Muon_QuaHan(root->left, mangKetQua, soLuong, mocThoiGian);
+
+    int maxQuaHan = 0;
+    bool coViPham = false;
+
+    for (PTRMT mt = root->dg.firstMT; mt != NULL; mt = mt->next){
+        Date hanTra = mt->mt.NgayMuon;
+        hanTra.d += 7;
+        Doi_Ngay_Thang_Nam(hanTra);
+
+        int soNgayTre = 0;
+        if (mt->mt.trangthai == MT_DANG_MUON) {
+            soNgayTre = Tinh_Khoang_Cach_Ngay(hanTra, mocThoiGian);
+        } else if (mt->mt.trangthai == MT_DA_TRA) {
+            if (Tinh_Khoang_Cach_Ngay(mt->mt.NgayTra, mocThoiGian) >= 0) {
+                 soNgayTre = Tinh_Khoang_Cach_Ngay(hanTra, mt->mt.NgayTra);
+            }
+        }
+
+        if (soNgayTre > 0) {
+            coViPham = true;
+            if (soNgayTre > maxQuaHan) maxQuaHan = soNgayTre;
+        }
+    }
+
+    if (coViPham) {
+        mangKetQua[soLuong].dg = &(root->dg);
+        mangKetQua[soLuong].soNgayMax = maxQuaHan;
+        soLuong++;
+    }
+
+    Duyet_DG_Muon_QuaHan(root->right, mangKetQua, soLuong, mocThoiGian);
+}
+
+void ThuVienLogic::LayDanhSachQuaHan(DocGiaQuaHan mangKetQua[], int &soLuong, Date mocThoiGian) {
+    soLuong = 0;
+    Duyet_DG_Muon_QuaHan(this->dsDocGia, mangKetQua, soLuong, mocThoiGian);
+
+    // Sắp xếp giảm dần theo số ngày quá hạn
+    for (int i = 0; i < soLuong - 1; i++) {
+        for (int j = 0; j < soLuong - i - 1; j++) {
+            if (mangKetQua[j].soNgayMax < mangKetQua[j+1].soNgayMax) {
+                swap(mangKetQua[j], mangKetQua[j+1]);
+            }
+        }
+    }
+}
+
+void ThuVienLogic::LayTop10SachMuonNhieuNhat(DauSach* mangKetQua[], int &soLuong) {
+    soLuong = 0;
+    if (dsds.n == 0) return;
+
+    DauSach* mangTam[MAX_DAUSACH];
+    for (int i = 0; i < dsds.n; i++) mangTam[i] = dsds.nodes[i];
+
+    // Sắp xếp: Lượt mượn giảm dần -> Tên tăng dần
+    for (int i = 0; i < dsds.n - 1; i++){
+        for (int j = 0; j < dsds.n - i - 1; j++){
+            DauSach* a = mangTam[j];
+            DauSach* b = mangTam[j + 1];
+
+            if (a->luotmuon < b->luotmuon || (a->luotmuon == b->luotmuon && a->tensach > b->tensach)) {
+                swap(mangTam[j], mangTam[j+1]);
+            }
+        }
+    }
+    // Lấy top 10
+    int soIn = (dsds.n < 10) ? dsds.n : 10;
+    for (int i = 0; i < soIn; i++){
+        mangKetQua[soLuong++] = mangTam[i];
+    }
+}
+
+// --- HỖ TRỢ HIỂN THỊ CHI TIẾT SÁCH (Tên người đang mượn) ---
+
+treeDG ThuVienLogic::DuyetTimNguoiMuon(treeDG root, string maSach) {
+    if (root == NULL) return NULL;
+    nodeMT* p = root->dg.firstMT;
+    while (p != NULL) {
+        if (p->mt.MASACH == maSach && p->mt.trangthai == MT_DANG_MUON) return root;
+        p = p->next;
+    }
+    treeDG kqTrai = DuyetTimNguoiMuon(root->left, maSach);
+    if (kqTrai != NULL) return kqTrai;
+    return DuyetTimNguoiMuon(root->right, maSach);
+}
+
+treeDG ThuVienLogic::TimDocGiaDangMuonSach(string maSach) {
+    return DuyetTimNguoiMuon(this->dsDocGia, maSach);
 }
