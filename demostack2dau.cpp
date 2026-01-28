@@ -1,189 +1,94 @@
-#include <iostream>
-#include <iomanip>
-#include <limits>
-#include <windows.h>
-using namespace std;
+1. Module Quản Lý Sách (Đầu sách & Sách con)
+Module này quản lý việc thêm, xóa, sửa, tìm kiếm và hiển thị danh sách sách.
 
-#define MAX 10
+A. Nhóm chức năng: Hiển thị & Lọc dữ liệu
+Logic (ThuVienLogic):
 
-void gotoxy(int x, int y) {
-    COORD coord;
-    coord.X = x;
-    coord.Y = y;
-    SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), coord);
-}
+LayDanhSachDauSach(...): Lấy danh sách đầu sách từ bộ nhớ, hỗ trợ sắp xếp theo thể loại.
 
-void setColor(int color) {
-    SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), color);
-}
+SoSanhTheoTheLoaiVaTen(...): Hàm phụ trợ quy định logic sắp xếp (Thể loại trước -> Tên sách).
 
-class DeStack {
-private:
-    int arr[MAX];
-    int top1, top2;
+Giao diện (MainWindow):
 
-public:
-    DeStack() {
-        top1 = -1;
-        top2 = MAX;
-    }
+capNhatBangDauSach(): Gọi logic lấy danh sách, lọc theo thể loại đang chọn (nếu có) và hiển thị lên bảng tableDauSach.
 
-    bool full() { return (top1 + 1 == top2); }
+on_treeLoaiSach_itemClicked(...): Xử lý khi chọn một thể loại trên cây danh mục để lọc dữ liệu hiển thị.
 
-    void showError(const string& msg) {
-    int errorX = 0;      // bên trái console
-    int errorY = 25;     // d?ng cu?i console
+B. Nhóm chức năng: Thêm mới & Cập nhật (Sửa)
+Logic (ThuVienLogic):
 
-    setColor(12);
-    gotoxy(errorX, errorY);
-    cout << msg;
-    setColor(7);
-    Sleep(2000);         // hi?nhi?n 2 giây
-    gotoxy(errorX, errorY);
-    cout << "                                    "; // xóa thông báo
-}
+ThemDauSach(...): Tạo đầu sách mới và chèn vào danh sách theo thứ tự tên.
 
-    void pushLeft(int x) {
-        if (full()) {
-            showError("Error: Stack full!");
-            return;
-        }
-        arr[++top1] = x;
-    }
+HieuChinhDauSach(...): Cập nhật thông tin đầu sách và sắp xếp lại danh sách.
 
-    void pushRight(int x) {
-        if (full()) {
-            showError("Error: Stack full!");
-            return;
-        }
-        arr[--top2] = x;
-    }
+ThemSachCon(...): Tạo các cuốn sách con (bản sao vật lý) với mã cá biệt tự động tăng.
 
-    void popLeft() {
-        if (top1 < 0) {
-            showError("Error: Left stack empty!");
-            return;
-        }
-        gotoxy(0, 15); cout << "Pop left: " << arr[top1--] << "           ";
-    }
+LaySoThuTuLonNhat(...): Tìm số đuôi lớn nhất của mã sách để sinh mã mới không trùng.
 
-    void popRight() {
-        if (top2 >= MAX) {
-            showError("Error: Right stack empty!");
-            return;
-        }
-        gotoxy(0, 15); cout << "Pop right: " << arr[top2++] << "          ";
-    }
+Giao diện (MainWindow):
 
-    void drawUI() {
-        system("cls");
-        cout << "\n              CHUONG TRINH DEMO STACK 2 DAU \n\n";
+on_btnTaoMoiSach_clicked(): Xóa trắng form để chuẩn bị nhập mới.
 
-        int originX = 10;
-        int originY = 5;
+on_btnCapNhat_clicked(): Nút "Lưu" đa năng. Nếu là sách mới -> gọi ThemDauSach. Nếu là sách cũ -> gọi HieuChinhDauSach. Đồng thời tính toán để gọi ThemSachCon hoặc XoaBotSachTrongKho dựa trên số lượng nhập vào.
 
-        gotoxy(originX + 4, originY - 1); cout << "S1";
-        gotoxy(originX + 24, originY - 1); cout << "S2";
+C. Nhóm chức năng: Xóa
+Logic (ThuVienLogic):
 
-        gotoxy(originX, originY); cout << "+";
-        for (int i = 0; i < MAX; i++) {
-            if (i < 5) setColor(9);
-            else setColor(12);
-            cout << "---+";
-        }
-        setColor(7);
+XoaDauSach(...): Kiểm tra xem sách có ai mượn không. Nếu không, xóa toàn bộ sách con và đầu sách khỏi bộ nhớ.
 
-        gotoxy(originX, originY + 1); cout << "|";
-        for (int i = 0; i < MAX; i++) {
-            if (i < 5) setColor(9);
-            else setColor(12);
-            if (i <= top1 || i >= top2) cout << setw(3) << arr[i] << "|";
-            else cout << "   |";
-        }
-        setColor(7);
+XoaBotSachTrongKho(...): Chỉ xóa bớt số lượng sách con (khi cập nhật giảm số lượng), chỉ xóa cuốn trong kho/đã thanh lý.
 
-        gotoxy(originX, originY + 2); cout << "+";
-        for (int i = 0; i < MAX; i++) {
-            if (i < 5) setColor(9);
-            else setColor(12);
-            cout << "---+";
-        }
-        setColor(7);
+Giao diện (MainWindow):
 
-        int arrowY = originY + 3;
-        int labelY = originY + 4;
+on_btnXoaDauSach_clicked(): Hiển thị hộp thoại xác nhận và gọi logic xóa. Thông báo lỗi nếu logic trả về kết quả đang có người mượn.
 
-        int headX = originX - 2;
-        int tailX = originX + 2 + MAX * 4;
+D. Nhóm chức năng: Tìm kiếm
+Logic (ThuVienLogic):
 
-        setColor(9);
-        gotoxy(headX, arrowY); cout << "^";
-        gotoxy(headX - 2, labelY); cout << "pHead";
+TimDauSachTheoISBN(...): Tìm chính xác đầu sách theo mã ISBN.
 
-        setColor(12);
-        gotoxy(tailX, arrowY); cout << "^";
-        gotoxy(tailX - 2, labelY); cout << "pTail";
+TimSachTheoTen(...): Tìm kiếm gần đúng các sách có tên chứa từ khóa.
 
-        setColor(7);
+Giao diện (MainWindow):
 
-        gotoxy(0, labelY + 3);
-        cout << " MENU:\n";
-        cout << "  1. Push left\n  2. Push right\n  3. Pop left\n  4. Pop right\n  5. Exit\n";
-    }
-};
+on_btnTimKiem_clicked(): Lấy từ khóa từ ô nhập liệu, gọi logic tìm kiếm tương ứng và cập nhật lại bảng kết quả.
 
-int main() {
-    DeStack s;
-    int choice, val;
+E. Nhóm chức năng: Chi tiết & Quản lý bản sao (Dialog)
+Logic (ThuVienLogic):
 
-    do {
-        s.drawUI();
-        cout << "\nChoice: ";
-        cin >> choice;
+TimSachConTheoMa(...): Tìm thông tin một cuốn sách cụ thể.
 
-        if (cin.fail()) {
-            cin.clear();
-            cin.ignore(numeric_limits<streamsize>::max(), '\n');
-            cout << "Invalid input!\n";
-            Sleep(1000);
-            continue;
-        }
+TimDocGiaDangMuonSach(...): Tìm độc giả đang giữ cuốn sách (để hiển thị tên người mượn).
 
-        switch (choice) {
-            case 1:
-                while (true) {
-                    cout << "Enter number: ";
-                    cin >> val;
-                    if (cin.fail()) {
-                        cin.clear();
-                        cin.ignore(numeric_limits<streamsize>::max(), '\n');
-                        cout << "Please enter a number!\n";
-                    } else {
-                        s.pushLeft(val);
-                        break;
-                    }
-                }
-                break;
-            case 2:
-                while (true) {
-                    cout << "Enter number: ";
-                    cin >> val;
-                    if (cin.fail()) {
-                        cin.clear();
-                        cin.ignore(numeric_limits<streamsize>::max(), '\n');
-                        cout << "Please enter a number!\n";
-                    } else {
-                        s.pushRight(val);
-                        break;
-                    }
-                }
-                break;
-            case 3: s.popLeft(); break;
-            case 4: s.popRight(); break;
-            case 5: cout << "Exiting...\n"; break;
-            default: cout << "Invalid choice!\n"; Sleep(1000);
-        }
-    } while (choice != 5);
+ThanhLySach(...): Chuyển trạng thái sách sang "Thanh lý".
 
-    return 0;
-}
+CapNhatViTriSach(...): Sửa vị trí kệ sách.
+
+Giao diện (MainWindow):
+
+on_tableDauSach_cellDoubleClicked(...): Mở cửa sổ Dialog chi tiết, hiển thị danh sách các cuốn sách con và người mượn. Tạo menu chuột phải để Thanh lý hoặc Sửa vị trí.
+
+2. Module Thống Kê
+Module này trích xuất dữ liệu báo cáo từ hệ thống.
+
+A. Yêu cầu i: Thống kê độc giả quá hạn (Giảm dần theo thời gian)
+Logic (ThuVienLogic):
+
+LayDanhSachQuaHan(...): Hàm chính, trả về mảng các độc giả quá hạn đã được sắp xếp giảm dần theo số ngày quá hạn.
+
+Duyet_DG_Muon_QuaHan(...): Hàm đệ quy duyệt cây nhị phân để tìm người vi phạm.
+
+KTQuaHan(...) & Tinh_Khoang_Cach_Ngay(...): Các hàm tính toán ngày tháng để xác định vi phạm.
+
+Giao diện (MainWindow):
+
+on_btnThongKeQuaHan_clicked(): Lấy ngày mốc, gọi logic và hiển thị danh sách độc giả cùng số ngày quá hạn lên bảng tableQuaHan.
+
+B. Yêu cầu j: Top 10 sách mượn nhiều nhất
+Logic (ThuVienLogic):
+
+LayTop10SachMuonNhieuNhat(...): Sắp xếp toàn bộ đầu sách theo luotmuon giảm dần và lấy 10 phần tử đầu tiên.
+
+Giao diện (MainWindow):
+
+on_btnTop10Sach_clicked(): Gọi logic lấy top 10 và hiển thị lên bảng tableTop10, định dạng cột lượt mượn cho nổi bật.
