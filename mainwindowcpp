@@ -1,0 +1,1348 @@
+#include "mainwindow.h"
+#include "ui_mainwindow.h"
+#include <QMessageBox>
+#include <QHeaderView>
+#include <QIcon>
+#include <QMenu>
+#include <QAction>
+#include <QDate>
+#include<QSize>
+#include <QInputDialog>
+#include <QDebug>
+#include <QDir>
+MainWindow::MainWindow(QWidget *parent)
+    : QMainWindow(parent)
+    , ui(new Ui::MainWindow)
+{
+    ui->setupUi(this);// load toàn bộ giao diện từ file .ui
+    qDebug() << "FILE NAM O DAY: " << QDir::currentPath();
+    ui->btnCapNhat->setIconSize(QSize(32, 32));
+    ui->btnTaoMoiSach->setIconSize(QSize(32, 32));
+    ui->btnKetThuc->setIconSize(QSize(32, 32));
+    ui->btnTraSach ->setIconSize(QSize(32, 32));
+    ui->btnBaoMatSach ->setIconSize(QSize(32, 32));
+
+    ui->tableDocGia->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+    ui->tableDauSach->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+    ui->tableSachCanTra->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+    ui->tableSachDangMuon->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+    ui->tableQuaHan->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+    ui->tableTop10->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+    // Tự động giãn cột bảng
+    m_selectedISBN = "";
+
+    ui->lineSoLuong->setValidator(new QIntValidator(0, 9999, this)); // chỉ cho nhập số nguyên 0-9999
+
+    ui->treeLoaiSach->header()->hide();// ẩn header
+    // Icon lấy từ Qt Resource (qrc).
+    QIcon iconHaiKich(":/icons/hai-kich.png");
+    QIcon iconVanHoc(":/icons/van-hoc.png");
+    QIcon iconTamLy(":/icons/tam-li-hoc.png");
+    QIcon iconToanHoc(":/icons/toan-hoc.png");
+    QIcon iconTinHoc(":/icons/tin-hoc.png");
+    QIcon iconTruyenTranh(":/icons/truyen-tranh.png");
+
+    //Mỗi thể loại là node cha
+    QTreeWidgetItem* categoryHai = new QTreeWidgetItem(ui->treeLoaiSach);
+    categoryHai->setText(0, "Hài kịch");
+    categoryHai->setIcon(0, iconHaiKich);
+
+    QTreeWidgetItem* categoryVanHoc = new QTreeWidgetItem(ui->treeLoaiSach);
+    categoryVanHoc->setText(0, "Văn học");
+    categoryVanHoc->setIcon(0, iconVanHoc);
+
+    QTreeWidgetItem* categoryTamLy = new QTreeWidgetItem(ui->treeLoaiSach);
+    categoryTamLy->setText(0, "Tâm lí học");
+    categoryTamLy->setIcon(0, iconTamLy);
+
+    QTreeWidgetItem* categoryToanHoc = new QTreeWidgetItem(ui->treeLoaiSach);
+    categoryToanHoc->setText(0, "Toán học");
+    categoryToanHoc->setIcon(0, iconToanHoc);
+
+    QTreeWidgetItem* categoryTinHoc = new QTreeWidgetItem(ui->treeLoaiSach);
+    categoryTinHoc->setText(0, "Tin học");
+    categoryTinHoc->setIcon(0, iconTinHoc);
+
+    QTreeWidgetItem* categoryTruyenTranh = new QTreeWidgetItem(ui->treeLoaiSach);
+    categoryTruyenTranh->setText(0, "Truyện tranh");
+    categoryTruyenTranh->setIcon(0, iconTruyenTranh);
+
+    QTreeWidgetItem* TatCaTheLoai = new QTreeWidgetItem(ui->treeLoaiSach);
+    TatCaTheLoai->setText(0, "All");
+
+    // Thêm sách con
+    // Hài kịch
+    categoryHai->addChild(new QTreeWidgetItem(QStringList() << "Dế Mèn Phiêu Lưu Ký"));
+    categoryHai->addChild(new QTreeWidgetItem(QStringList() << "Số Đỏ"));
+    categoryHai->addChild(new QTreeWidgetItem(QStringList() << "Ba gã cùng thuyền"));
+
+    // Văn học
+    categoryVanHoc->addChild(new QTreeWidgetItem(QStringList() << "Truyện Kiều"));
+    categoryVanHoc->addChild(new QTreeWidgetItem(QStringList() << "Chí Phèo"));
+    categoryVanHoc->addChild(new QTreeWidgetItem(QStringList() << "Kiêu hãnh và định kiến"));
+
+    // Tâm lí học
+    categoryTamLy->addChild(new QTreeWidgetItem(QStringList() << "Đắc nhân tâm"));
+    categoryTamLy->addChild(new QTreeWidgetItem(QStringList() << "Phi lý trí"));
+    categoryTamLy->addChild(new QTreeWidgetItem(QStringList() << "Tư duy nhanh và chậm"));
+
+    // Toán học
+    categoryToanHoc->addChild(new QTreeWidgetItem(QStringList() << "Số học vui"));
+    categoryToanHoc->addChild(new QTreeWidgetItem(QStringList() << "Định lý cuối cùng của Fermat"));
+    categoryToanHoc->addChild(new QTreeWidgetItem(QStringList() << "Làm sao để giải một bài toán"));
+
+    // Tin học
+    categoryTinHoc->addChild(new QTreeWidgetItem(QStringList() << "Cấu trúc dữ liệu và Giải thuật"));
+    categoryTinHoc->addChild(new QTreeWidgetItem(QStringList() << "Lập trình C/C++"));
+    categoryTinHoc->addChild(new QTreeWidgetItem(QStringList() << "Giáo trình Mạng máy tính"));
+
+    // Truyện tranh
+    categoryTruyenTranh->addChild(new QTreeWidgetItem(QStringList() << "Doraemon"));
+    categoryTruyenTranh->addChild(new QTreeWidgetItem(QStringList() << "Bảy viên ngọc rồng (Dragon Ball)"));
+    categoryTruyenTranh->addChild(new QTreeWidgetItem(QStringList() << "One Piece (Đảo Hải Tặc)"));
+    categoryTruyenTranh->addChild(new QTreeWidgetItem(QStringList() << "Naruto"));
+
+    // Cấp phát bộ nhớ (logic) và Load file vào Cây BST , DS liên kết
+    m_logic = new ThuVienLogic(this);
+    m_logic->KhoiTaoVaTaiDuLieu();
+
+    // 2. Khởi tạo biến mã thẻ
+    m_selectedMaThe = -1; // -1 nghĩa là chưa chọn ai
+
+    // 3. Kết nối tín hiệu (signal) từ "bộ não" đến slot (hàm) của GUI
+    connect(m_logic, &ThuVienLogic::duLieuDocGiaThayDoi, this, &MainWindow::capNhatBangDocGia);
+    connect(m_logic, &ThuVienLogic::guiThongBao, this, &MainWindow::hienThiThongBao);
+
+    connect(ui->tableDocGia, &QTableWidget::cellClicked,this, &MainWindow::on_tableDocGia_cellClicked);
+
+    // 5. Cập nhật bảng lần đầu tiên
+    capNhatBangDocGia();
+    // CÁC KẾT NỐI MỚI CHO TAB SÁCH
+    connect(m_logic, &ThuVienLogic::duLieuDauSachThayDoi,
+            this, &MainWindow::capNhatBangDauSach);
+
+    connect(ui->tableDauSach, &QTableWidget::cellClicked,
+            this, &MainWindow::on_tableDauSach_cellDoubleClicked);
+
+    connect(ui->treeLoaiSach, &QTreeWidget::itemClicked,
+            this, &MainWindow::on_treeLoaiSach_itemClicked);
+
+    connect(ui->tableDauSach, &QTableWidget::cellDoubleClicked,
+            this, &MainWindow::on_tableDauSach_cellDoubleClicked);
+
+    capNhatBangDauSach();
+
+    // --- MENU CHO NÚT SẮP XẾP ---
+    QMenu *sortMenu = new QMenu(this);
+    QAction *actionMaThe = new QAction("Sắp xếp theo Mã Thẻ", this);
+    QAction *actionHoTen = new QAction("Sắp xếp theo Họ Tên", this);
+
+    sortMenu->addAction(actionMaThe);
+    sortMenu->addAction(actionHoTen);
+
+    // Gắn menu vào nút bấm
+    ui->btnSapXep->setMenu(sortMenu);
+
+    m_isSortByMaThe = false; // Mặc định ban đầu là theo tên
+
+    // Kết nối sự kiện khi chọn menu
+    connect(actionMaThe, &QAction::triggered, this, [=](){
+        m_isSortByMaThe = true;
+        capNhatBangDocGia(); // Load lại toàn bộ bảng theo mã
+    });
+
+    connect(actionHoTen, &QAction::triggered, this, [=](){
+        m_isSortByMaThe = false;
+        capNhatBangDocGia(); // Load lại toàn bộ bảng theo tên
+    });
+    XoaTrangForm();
+}
+
+MainWindow::~MainWindow(){
+    m_logic->LuuDuLieuKhiThoat();
+    delete ui;
+}
+
+// === KHI NHẤN NÚT "TẠO MỚI" ===
+void MainWindow::on_btnTaoMoi_clicked(){
+    XoaTrangForm();
+    capNhatBangDocGia();
+}
+
+// === HÀM XỬ LÝ KHI NHẤN NÚT "XÓA" ===
+void MainWindow::on_btnXoaDocGia_clicked() {
+    if (m_selectedMaThe == -1) {
+        QMessageBox::warning(this, "Lỗi", "Vui lòng chọn một độc giả!");
+        return;
+    }
+
+    if (QMessageBox::question(this, "Xác nhận",
+                              "Bạn có chắc muốn xóa độc giả này?")
+        == QMessageBox::No)
+        return;
+
+    bool kq = m_logic->XoaDocGia(m_selectedMaThe);
+
+    if (kq) {
+        capNhatBangDocGia();
+        XoaTrangForm();
+        m_selectedMaThe = -1;
+        QMessageBox::information(this, "Thành công", "Đã xóa độc giả!");
+    }
+}
+
+void MainWindow::on_btnLuu_clicked(){
+    QString ho = ui->lineHo->text();
+    QString ten = ui->lineTen->text();
+    QString phai = ui->radioNam->isChecked() ? "Nam" : "Nữ";
+    int trangThai = ui->radioHoatDong->isChecked() ? THE_HOAT_DONG : THE_KHOA;
+
+    if (m_selectedMaThe == -1){
+        // --- CHẾ ĐỘ THÊM MỚI ---
+        m_logic->ThemDocGia(ho.toStdString(), ten.toStdString(), phai.toStdString());
+    }
+    else{
+        // --- CHẾ ĐỘ SỬA (CẬP NHẬT) ---
+        m_logic->HieuChinhDocGia(m_selectedMaThe, ho.toStdString(), ten.toStdString(), phai.toStdString(), trangThai);
+    }
+    XoaTrangForm();
+}
+
+// KHI CLICK CHUỘT VÀO MỘT Ô TRONG BẢNG
+// Lấy: Mã thẻ,Họ,Tên,Phái,Trạng Thái -> Đưa lên LineEdit + RadioButton
+void MainWindow::on_tableDocGia_cellClicked(int row, int column){
+    m_selectedMaThe = ui->tableDocGia->item(row, 0)->text().toInt();
+
+    ui->lineHo->setText(ui->tableDocGia->item(row, 1)->text());
+    ui->lineTen->setText(ui->tableDocGia->item(row, 2)->text());
+
+    // Cập nhật Radio Button "Phái"
+    QString phai = ui->tableDocGia->item(row, 3)->text();
+    if (phai == "Nam") {
+        ui->radioNam->setChecked(true);
+    } else {
+        ui->radioNu->setChecked(true);
+    }
+
+    // Cập nhật Radio Button "Trạng thái"
+    QString trangThai = ui->tableDocGia->item(row, 4)->text();
+    if (trangThai == "Hoat Dong") {
+        ui->radioHoatDong->setChecked(true);
+    } else {
+        ui->radioBiKhoa->setChecked(true);
+    }
+}
+
+void MainWindow::on_btnThoat_clicked(){
+
+    close();
+}
+
+void MainWindow::capNhatBangDocGia(){
+    m_logic->KiemTraVaKhoaTuDong();
+
+    nodeDG* mangDocGia[MAX_DAUSACH];
+    int soLuong = 0;
+
+    if (m_isSortByMaThe) {
+        m_logic->LayDanhSachDocGia(mangDocGia, soLuong, false); // false = Theo Mã
+    } else {
+        m_logic->LayDanhSachDocGia(mangDocGia, soLuong, true);  // true = Theo Tên
+    }
+
+    ui->tableDocGia->setRowCount(0);
+
+    ui->tableDocGia->setHorizontalHeaderLabels({
+        QString::fromUtf8("Mã Thẻ"),
+        QString::fromUtf8("Họ"),
+        QString::fromUtf8("Tên"),
+        QString::fromUtf8("Giới tính"),
+        QString::fromUtf8("Trạng Thái")
+    });
+    for (int i = 0; i < soLuong; i++) {
+        ui->tableDocGia->insertRow(i);
+
+        ui->tableDocGia->setItem(i, 0, new QTableWidgetItem(QString::number(mangDocGia[i]->dg.MATHE)));
+        ui->tableDocGia->setItem(i, 1, new QTableWidgetItem(QString::fromStdString(mangDocGia[i]->dg.Ho)));
+        ui->tableDocGia->setItem(i, 2, new QTableWidgetItem(QString::fromStdString(mangDocGia[i]->dg.Ten)));
+        ui->tableDocGia->setItem(i, 3, new QTableWidgetItem(QString::fromStdString(mangDocGia[i]->dg.Phai)));
+        QString trangThai = (mangDocGia[i]->dg.trangthai == THE_HOAT_DONG) ? "Hoat Dong" : (mangDocGia[i]->dg.trangthai == THE_KHOA ? "Bi Khoa" : "Da Xoa");
+        ui->tableDocGia->setItem(i, 4, new QTableWidgetItem(trangThai));
+    }
+}
+
+void MainWindow::on_btnTimDocGia_clicked(){
+    // 1. Lấy mã thẻ từ ô "lineTimMaThe"
+    QString maTheText = ui->lineTimMaThe->text();
+    if (maTheText.isEmpty()) {
+        hienThiThongBao("Vui lòng nhập Mã Thẻ để tìm!");
+        return;
+    }
+
+    bool ok;
+    int maThe = maTheText.toInt(&ok); // false nếu ng dùng nhập là 123a
+    if (!ok) {
+        hienThiThongBao("Lỗi: Mã Thẻ phải là số!");
+        return;
+    }
+
+    // 2. Gọi "bộ não" để tìm
+    treeDG node = m_logic->TimDocGiaTheoMa(maThe);
+
+    // 3. Nếu không tìm thấy
+    if (node == NULL || node->dg.trangthai == DA_XOA) { // đã đi hết cây vẫn không thấy , tồn tại nhưng trạng thái là ĐÃ XÓA
+        hienThiThongBao("Không tìm thấy ĐỘC GIẢ với mã thẻ .");
+        XoaTrangForm();
+    } else {
+        // 4. Nếu tìm thấy, điền thông tin vào các ô
+        m_selectedMaThe = node->dg.MATHE; // sửa
+
+        ui->lineHo->setText(QString::fromStdString(node->dg.Ho));
+        ui->lineTen->setText(QString::fromStdString(node->dg.Ten));
+
+        if (node->dg.Phai == "Nam") {
+            ui->radioNam->setChecked(true);
+        } else {
+            ui->radioNu->setChecked(true);
+        }
+
+        if (node->dg.trangthai == THE_HOAT_DONG) {
+            ui->radioHoatDong->setChecked(true);
+        } else {
+            ui->radioBiKhoa->setChecked(true);
+        }
+        ui->tableDocGia->setRowCount(0);
+        ui->tableDocGia->insertRow(0);
+        ui->tableDocGia->setItem(0, 0, new QTableWidgetItem(QString::number(node->dg.MATHE)));
+        ui->tableDocGia->setItem(0, 1, new QTableWidgetItem(QString::fromStdString(node->dg.Ho)));
+        ui->tableDocGia->setItem(0, 2, new QTableWidgetItem(QString::fromStdString(node->dg.Ten)));
+        ui->tableDocGia->setItem(0, 3, new QTableWidgetItem(QString::fromStdString(node->dg.Phai)));
+        QString trangThai = (node->dg.trangthai == THE_HOAT_DONG) ? "Hoat Dong" : (node->dg.trangthai == THE_KHOA ? "Bi Khoa" : "Da Xoa");
+        ui->tableDocGia->setItem(0, 4, new QTableWidgetItem(trangThai));
+    }
+}
+
+// ===CHỨC NĂNG UNDO ( HOÀN TÁC ) ===
+void MainWindow::on_btnHoanTac_clicked(){
+    m_logic->UndoDocGia();
+}
+
+// === HÀM DÙNG ĐỂ XÓA TRẮNG CÁC Ô NHẬP LIỆU ===
+void MainWindow::XoaTrangForm(){
+    ui->lineTimMaThe->clear();
+    ui->lineHo->clear();
+    ui->lineTen->clear();
+    ui->radioNam->setChecked(true); // Đặt lại Giới tính về "Nam"
+    ui->radioHoatDong->setChecked(true); // Đặt lại Trạng thái về "Hoạt Động"
+
+    m_selectedMaThe = -1; // Quay về chế độ "Thêm mới"
+    ui->tableDocGia->clearSelection(); // Bỏ chọn trên bảng
+}
+
+void MainWindow::hienThiThongBao(QString message){
+    QMessageBox::information(this, "Thong Bao", message);
+}
+// =================================================================
+// ===           CÁC HÀM XỬ LÝ CHO TAB "QUẢN LÝ SÁCH"           ===
+// =================================================================
+
+void MainWindow::on_btnTaoMoiSach_clicked(){
+    XoaTrangFormSach();
+    capNhatBangDauSach();
+}
+
+void MainWindow::on_btnKetThuc_clicked(){
+    close();
+}
+void MainWindow::on_btnXoaDauSach_clicked()
+{
+    // 1. Kiểm tra xem người dùng đã chọn sách chưa
+    if (m_selectedISBN.isEmpty()) {
+        QMessageBox::warning(this, "Chưa chọn sách", "Vui lòng chọn một đầu sách trên bảng để xóa!");
+        return;
+    }
+
+    // 2. Hỏi xác nhận (RẤT QUAN TRỌNG vì hàm này xóa hàng loạt)
+    QMessageBox::StandardButton reply;
+    reply = QMessageBox::question(this, "Cảnh báo xóa",
+                                  "Bạn có chắc chắn muốn xóa đầu sách này?\n"
+                                  "Hành động này sẽ XÓA TẤT CẢ các cuốn sách con trong kho (nếu chưa ai mượn).",
+                                  QMessageBox::Yes | QMessageBox::No);
+
+    if (reply == QMessageBox::No) return;
+
+    // 3. Gọi hàm logic mới (chuyển QString sang std::string)
+    int ketQua = m_logic->XoaDauSach(m_selectedISBN.toStdString());
+
+    // 4. Xử lý 3 tình huống trả về
+    if (ketQua == 1) {
+        // Trường hợp 1: Xóa thành công
+        QMessageBox::information(this, "Thành công", "Đã xóa đầu sách và toàn bộ sách con trong kho.");
+
+        // Reset biến và làm mới bảng
+        m_selectedISBN = "";
+        XoaTrangFormSach(); // Gọi hàm xóa trắng các ô nhập liệu của bạn
+
+    }
+    else if (ketQua == -1) {
+        // Trường hợp 2: Có người đang mượn -> Cấm xóa
+        QMessageBox::critical(this, "Không thể xóa",
+                              "Đầu sách này đang có độc giả mượn!\n"
+                              "Bạn không thể xóa khi sách chưa được trả hết về kho.");
+    }
+    else if (ketQua == 0) {
+        // Trường hợp 3: Lỗi lạ (không tìm thấy sách)
+        QMessageBox::warning(this, "Lỗi", "Không tìm thấy đầu sách trong hệ thống (có thể đã bị xóa trước đó).");
+    }
+}
+void MainWindow::XoaTrangFormSach(){
+    // Xóa chữ trong các ô
+    ui->lineISBN->clear();
+    ui->lineTenSach->clear();
+    ui->lineTacGia->clear();
+    ui->lineTheLoai->clear();
+    ui->lineSoTrang->clear();
+    ui->lineNamXB->clear();
+    ui->lineSoLuong ->setText("0");
+
+    // Mở khóa ô ISBN (để nhập mới)
+    ui->lineISBN->setReadOnly(false);
+    // Quay về chế độ Thêm mới
+    m_selectedISBN = "";
+    ui->tableDauSach->clearSelection();
+}
+
+void MainWindow::on_btnCapNhat_clicked(){
+    // 1. Lấy dữ liệu và chuẩn hóa
+    QString isbn = ui->lineISBN->text().trimmed();
+    QString tenSach = ui->lineTenSach->text().trimmed();
+    QString tacGia = ui->lineTacGia->text().trimmed();
+    QString theLoai = ui->lineTheLoai->text().trimmed();
+    int soTrang = ui->lineSoTrang->text().toInt();
+    int namXB = ui->lineNamXB->text().toInt();
+    int soLuongConMoi = ui->lineSoLuong->text().toInt(); // Số lượng người dùng mong muốn
+
+    if (namXB <= 0) namXB = 2000;
+
+    if (isbn.isEmpty() || tenSach.isEmpty() || tacGia.isEmpty()) {
+        hienThiThongBao("ISBN, Tên Sách, Tác Giả không được để trống!");
+        return;
+    }
+
+    // --- TRƯỜNG HỢP 1: THÊM MỚI (Nếu chưa chọn ISBN nào) ---
+    if (m_selectedISBN.isEmpty())
+    {
+        bool themThanhCong = m_logic->ThemDauSach(isbn.toStdString(),
+                                                  tenSach.toStdString(),
+                                                  tacGia.toStdString(),
+                                                  theLoai.toStdString(),
+                                                  soTrang,
+                                                  namXB);
+
+        // Sau khi tạo đầu sách xong, mới thêm các cuốn sách con vào
+        if (themThanhCong && soLuongConMoi > 0) {
+            string dsMaSachTao;
+            m_logic->ThemSachCon(isbn.toStdString(), soLuongConMoi, dsMaSachTao);
+        }
+    }
+    // --- TRƯỜNG HỢP 2: CẬP NHẬT / SỬA ---
+    else
+    {
+        // A. Cập nhật thông tin văn bản (Tên, Tác giả...)
+        m_logic->HieuChinhDauSach(isbn.toStdString(),
+                                  tenSach.toStdString(),
+                                  tacGia.toStdString(),
+                                  theLoai.toStdString(),
+                                  soTrang,
+                                  namXB);
+
+        // B. XỬ LÝ SỐ LƯỢNG (TĂNG HOẶC GIẢM)
+        DauSach* ds = m_logic->TimDauSachTheoISBN(isbn.toStdString());
+        int soLuongHienTai = m_logic->DemSoSachCon(ds);
+
+        // Tính chênh lệch: Dương là cần thêm, Âm là cần xóa
+        int chenhLech = soLuongConMoi - soLuongHienTai;
+
+        if (chenhLech > 0) {
+            // === MUỐN TĂNG THÊM ===
+            string dsMaSachTao;
+            m_logic->ThemSachCon(isbn.toStdString(), chenhLech, dsMaSachTao);
+            QMessageBox::information(this, "Cập nhật", "Đã nhập thêm " + QString::number(chenhLech) + " cuốn sách mới.");
+        }
+        else if (chenhLech < 0) {
+            // === MUỐN GIẢM BỚT ===
+            int soLuongCanGiam = abs(chenhLech); // Lấy số dương (vd: -5 thành 5)
+
+            // Hỏi xác nhận trước khi xóa
+            QMessageBox::StandardButton reply = QMessageBox::question(this, "Cảnh báo xóa sách",
+                                                                      "Bạn đang giảm số lượng từ " + QString::number(soLuongHienTai) + " xuống " + QString::number(soLuongConMoi) + ".\n"
+                                                                                                                                                                                                  "Hệ thống sẽ xóa ngẫu nhiên " + QString::number(soLuongCanGiam) + " cuốn sách ĐANG TRONG KHO.\n"
+                                                                                                              "Bạn có chắc chắn không?",
+                                                                      QMessageBox::Yes|QMessageBox::No);
+
+            if (reply == QMessageBox::Yes) {
+                int daXoa = m_logic->XoaBotSachTrongKho(isbn.toStdString(), soLuongCanGiam);
+
+                if (daXoa < soLuongCanGiam) {
+                    QMessageBox::warning(this, "Kết quả",
+                                         "Chỉ xóa được " + QString::number(daXoa) + " cuốn.\n"
+                                                                                           "Còn " + QString::number(soLuongCanGiam - daXoa) + " cuốn không thể xóa vì ĐANG CÓ NGƯỜI MƯỢN.");
+                } else {
+                    QMessageBox::information(this, "Thành công", "Đã giảm số lượng sách thành công.");
+                }
+            }
+        }
+    }
+
+    XoaTrangFormSach();
+    capNhatBangDauSach();
+}
+// Hàm cập nhật bảng chính
+void MainWindow::capNhatBangDauSach(){
+    DauSach* mangDauSach[MAX_DAUSACH];
+    int soLuong = 0;
+    // Lây toàn bộ danh sách từ logic
+    m_logic->LayDanhSachDauSach(mangDauSach, soLuong, false);
+
+    ui->tableDauSach->setRowCount(0);// xóa bảng cũ
+    // Thiết lập tiêu đề cột nếu chưa có.
+    if (ui->tableDauSach->columnCount() < 7) {
+        ui->tableDauSach->setColumnCount(7);
+        ui->tableDauSach->setHorizontalHeaderLabels(
+            {"ISBN","Tên Sách","Thể Loại","Tác Giả", "Số trang", "Năm xuất bản ","Số lượng"}
+            );
+    }
+
+    int hangHienTai = 0;
+    for (int i = 0; i < soLuong; i++) {
+        // Nếu người dùng đang chọn 1 thể loại cụ thể bên cây thư mục.
+        if (!m_selectedTheLoai.isEmpty())
+        {
+            // Chuẩn hóa về chữ thường để so sánh không phân biệt hoa/thường
+            QString theLoaiSach = QString::fromStdString(mangDauSach[i]->theloai).toLower();
+            QString theLoaiDangChon = m_selectedTheLoai.toLower();
+
+            if (theLoaiSach != theLoaiDangChon)
+            {
+                continue;
+            }
+        }
+
+        ui->tableDauSach->insertRow(hangHienTai);
+
+        ui->tableDauSach->setItem(hangHienTai, 0, new QTableWidgetItem(QString::fromStdString(mangDauSach[i]->ISBN)));
+        ui->tableDauSach->setItem(hangHienTai, 1, new QTableWidgetItem(QString::fromStdString(mangDauSach[i]->tensach)));
+        ui->tableDauSach->setItem(hangHienTai, 2, new QTableWidgetItem(QString::fromStdString(mangDauSach[i]->theloai)));
+        ui->tableDauSach->setItem(hangHienTai, 3, new QTableWidgetItem(QString::fromStdString(mangDauSach[i]->tacgia)));
+        ui->tableDauSach->setItem(hangHienTai, 4, new QTableWidgetItem(QString::number(mangDauSach[i]->sotrang)));
+        ui->tableDauSach->setItem(hangHienTai, 5, new QTableWidgetItem(QString::number(mangDauSach[i]->namxb)));
+
+        int soLuongCon = m_logic->DemSoSachCon(mangDauSach[i]);
+        ui->tableDauSach->setItem(hangHienTai, 6, new QTableWidgetItem(QString::number(soLuongCon)));
+
+        hangHienTai++;
+    }
+}
+void MainWindow::on_tableDauSach_cellClicked(int row, int column){
+    // 1. Lấy ISBN (khóa chính) từ cột 0
+    m_selectedISBN = ui->tableDauSach->item(row, 0)->text();
+
+    // 2. Điền thông tin lên form
+    ui->lineISBN->setText(m_selectedISBN);
+    ui->lineTenSach ->setText(ui->tableDauSach->item(row, 1)->text());
+    ui->lineTheLoai->setText(ui->tableDauSach->item(row, 2)->text());
+    ui->lineTacGia->setText(ui->tableDauSach->item(row, 3)->text());
+    ui->lineSoTrang->setText(ui->tableDauSach->item(row, 4)->text());
+    ui->lineNamXB->setText(ui->tableDauSach->item(row, 5)->text());
+    ui->lineSoLuong->setText(ui->tableDauSach->item(row, 6)->text());
+
+    // 3. KHÓA ô ISBN lại (không cho sửa khóa chính)
+    ui->lineISBN->setReadOnly(true);
+}
+void MainWindow::on_btnTimKiem_clicked(){
+    // 1. Lấy dữ liệu từ cả 2 ô nhập liệu (cắt khoảng trắng thừa)
+    QString tuKhoaISBN = ui->lineISBN->text().trimmed();
+    QString tuKhoaTen  = ui->lineTenSach->text().trimmed();
+
+    // 2. Chuẩn bị mảng để hứng kết quả
+    DauSach* ketQua[MAX_DAUSACH];
+    int soLuongKQ = 0;
+
+    // --- LOGIC TÌM KIẾM ---
+
+    // ƯU TIÊN 1: Nếu có nhập ISBN -> Tìm chính xác theo ISBN
+    if (!tuKhoaISBN.isEmpty()) {
+        // Gọi hàm tìm trong Logic
+        DauSach* ds = m_logic->TimDauSachTheoISBN(tuKhoaISBN.toStdString());
+
+        if (ds != NULL) {
+            ketQua[0] = ds; // Tìm thấy thì đưa vào mảng kết quả
+            soLuongKQ = 1;
+        } else {
+            hienThiThongBao("Không tìm thấy đầu sách có ISBN: " + tuKhoaISBN);
+            return; // Dừng lại nếu tìm ISBN thất bại
+        }
+    }
+    // ƯU TIÊN 2: Nếu ô ISBN trống -> Tìm theo Tên Sách (Tìm gần đúng)
+    else if (!tuKhoaTen.isEmpty()) {
+        m_logic->TimSachTheoTen(tuKhoaTen.toStdString(), ketQua, soLuongKQ);
+
+        if (soLuongKQ == 0) {
+            hienThiThongBao("Không tìm thấy sách nào có tên chứa: " + tuKhoaTen);
+            return;
+        }
+    }
+    // TRƯỜNG HỢP 3: Cả 2 ô đều trống -> Hiển thị lại tất cả (Reset)
+    else {
+        m_selectedTheLoai = "";
+        capNhatBangDauSach();
+        return;
+    }
+
+    // 3. HIỂN THỊ KẾT QUẢ TÌM ĐƯỢC LÊN BẢNG
+    ui->tableDauSach->setRowCount(0); // Xóa bảng cũ
+
+    for (int i = 0; i < soLuongKQ; i++) {
+        DauSach* ds = ketQua[i];
+
+        ui->tableDauSach->insertRow(i);
+
+        ui->tableDauSach->setItem(i, 0, new QTableWidgetItem(QString::fromStdString(ds->ISBN)));
+        ui->tableDauSach->setItem(i, 1, new QTableWidgetItem(QString::fromStdString(ds->tensach)));
+        ui->tableDauSach->setItem(i, 2, new QTableWidgetItem(QString::fromStdString(ds->theloai)));
+        ui->tableDauSach->setItem(i, 3, new QTableWidgetItem(QString::fromStdString(ds->tacgia)));
+        ui->tableDauSach->setItem(i, 4, new QTableWidgetItem(QString::number(ds->namxb)));
+        ui->tableDauSach->setItem(i, 5, new QTableWidgetItem(QString::number(ds->sotrang)));
+
+        int soLuongCon = m_logic->DemSoSachCon(ds);
+        ui->tableDauSach->setItem(i, 6 , new QTableWidgetItem(QString::number(soLuongCon)));
+    }
+}
+
+// KHI CLICK VÀO CÂY THỂ LOẠI
+void MainWindow::on_treeLoaiSach_itemClicked(QTreeWidgetItem *item, int column){
+    // Chỉ xử lý khi click vào mục cha (Thể loại)
+    if (item->parent() != NULL) {
+        return;
+    }
+
+    XoaTrangFormSach();
+    // Lấy tên thể loại vừa bấm
+    QString theLoai = item->text(0);
+    if (theLoai == "All") {
+        m_selectedTheLoai = ""; // Nếu chọn "All" thì xóa bộ lọc để hiện tất cả
+    } else {
+        m_selectedTheLoai = theLoai; // Lưu lại thể loại đang chọn
+        ui->lineTheLoai->setText(theLoai); // Tự động điền tên thể loại vào ô nhập
+    }
+    // Cập nhật lại bảng sách theo thể loại vừa chọn
+    capNhatBangDauSach();
+}
+
+void MainWindow::on_tableDauSach_cellDoubleClicked(int row, int column){
+    // 1. Kiểm tra dòng hợp lệ
+    if (row < 0) return;
+
+    // 2. Lấy ISBN từ cột 0 và tìm Đầu Sách trong bộ nhớ
+    QString isbn = ui->tableDauSach->item(row, 0)->text();
+    DauSach* dauSachDuocChon = m_logic->TimDauSachTheoISBN(isbn.toStdString());
+
+    if (dauSachDuocChon == NULL) return;
+
+    // 3. Chuẩn bị dữ liệu danh sách sách con
+    int soLuongSachCon = m_logic->DemSoSachCon(dauSachDuocChon);
+    nodeSach* pHead = dauSachDuocChon->firstDMS;
+
+    // 4. Tạo cửa sổ Dialog
+    QDialog *dialog = new QDialog(this);
+    dialog->setWindowTitle("Chi tiết sách: " + QString::fromStdString(dauSachDuocChon->tensach));
+    // Tăng chiều rộng lên 800 để đủ chỗ cho cột tên người mượn
+    dialog->resize(800, 450);
+
+    // 5. Tạo bảng hiển thị (QTableWidget)
+    QTableWidget *table = new QTableWidget(dialog);
+
+    table->setColumnCount(4);
+    table->setHorizontalHeaderLabels(QStringList() << "Mã Sách" << "Trạng thái" << "Vị trí" << "Người đang mượn");
+    table->setRowCount(soLuongSachCon);
+
+    // ===============================================================
+    // PHẦN 2: ĐỔ DỮ LIỆU VÀO BẢNG (LOOP)
+    // ===============================================================
+    nodeSach* pCurrent = pHead;
+    int hangHienTai = 0;
+
+    while (pCurrent != NULL && hangHienTai < soLuongSachCon)
+    {
+        Sach &sach = pCurrent->sach;
+
+        // Cột 0: Mã sách
+        table->setItem(hangHienTai, 0, new QTableWidgetItem(QString::fromStdString(sach.MASACH)));
+
+        // Cột 1: Trạng thái
+        string ttChu = m_logic->ChuyenTrangThaiThanhChu(sach.trangthai);
+        table->setItem(hangHienTai, 1, new QTableWidgetItem(QString::fromStdString(ttChu)));
+
+        // Cột 2: Vị trí
+        table->setItem(hangHienTai, 2, new QTableWidgetItem(QString::fromStdString(sach.vitri)));
+
+        // --- CỘT 3: NGƯỜI MƯỢN (CODE MỚI THÊM) ---
+        QString nguoiMuon = "-"; // Mặc định là gạch ngang
+
+        // Nếu sách đang ở trạng thái "Đã có độc giả mượn" (Status = 1)
+        if (sach.trangthai == 1) {
+            // Gọi hàm logic đi tìm độc giả đang giữ cuốn này
+            treeDG dg = m_logic->TimDocGiaDangMuonSach(sach.MASACH);
+
+            if (dg != NULL) {
+                // Nếu tìm thấy -> Hiển thị "Họ Tên (Mã Thẻ)"
+                nguoiMuon = QString::fromStdString(dg->dg.Ho + " " + dg->dg.Ten) +
+                            " (" + QString::number(dg->dg.MATHE) + ")";
+            } else {
+                nguoiMuon = "Lỗi: Ko tìm thấy ĐG";
+            }
+        }
+
+        QTableWidgetItem* itemNguoiMuon = new QTableWidgetItem(nguoiMuon);
+        // Tô màu đỏ cho tên người mượn để dễ nhìn
+        if (sach.trangthai == 1) {
+            itemNguoiMuon->setForeground(Qt::red);
+            itemNguoiMuon->setFont(QFont("Arial", 9, QFont::Bold));
+        }
+        table->setItem(hangHienTai, 3, itemNguoiMuon);
+
+        pCurrent = pCurrent->next;
+        hangHienTai++;
+    }
+
+    // Cấu hình bảng: Không cho sửa trực tiếp, tự giãn cột
+    table->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    table->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+
+    // Chỉnh cột Mã và Trạng thái nhỏ lại chút để nhường chỗ cho Tên người (dài)
+    table->horizontalHeader()->setSectionResizeMode(0, QHeaderView::ResizeToContents);
+    table->horizontalHeader()->setSectionResizeMode(1, QHeaderView::ResizeToContents);
+
+    // ================================================
+    // PHẦN 3: MENU CHUỘT PHẢI (GIỮ NGUYÊN)
+    // ================================================
+    table->setContextMenuPolicy(Qt::CustomContextMenu);
+
+    connect(table, &QTableWidget::customContextMenuRequested, [=](const QPoint &pos){
+        QTableWidgetItem *item = table->itemAt(pos);
+        if (!item) return;
+
+        int currentRow = item->row();
+
+        QString maSach = table->item(currentRow, 0)->text();
+        QString trangThaiHienTai = table->item(currentRow, 1)->text();
+        QString viTriHienTai = table->item(currentRow, 2)->text();
+
+        QMenu menu;
+        QAction *actThanhLy = menu.addAction("Thanh lý cuốn này");
+
+        if (trangThaiHienTai != QString::fromUtf8("Cho mượn được")) {
+            actThanhLy->setEnabled(false);
+            actThanhLy->setText("Chỉ thanh lý sách trong kho");
+        }
+
+        QAction *actSuaViTri = menu.addAction("Cập nhật vị trí");
+
+        // Xử lý Thanh lý
+        connect(actThanhLy, &QAction::triggered, [=](){
+            QMessageBox::StandardButton reply = QMessageBox::question(dialog, "Xác nhận",
+                                                                      "Bạn có chắc muốn thanh lý sách mã: " + maSach + "?",
+                                                                      QMessageBox::Yes|QMessageBox::No);
+
+            if (reply == QMessageBox::Yes) {
+                if (m_logic->ThanhLySach(isbn.toStdString(), maSach.toStdString())) {
+                    table->item(currentRow, 1)->setText(QString::fromUtf8("Đã thanh lý"));
+                    QMessageBox::information(dialog, "Thành công", "Đã thanh lý sách.");
+                } else {
+                    QMessageBox::warning(dialog, "Lỗi", "Không thể thanh lý.");
+                }
+            }
+        });
+
+        // Xử lý Sửa vị trí
+        connect(actSuaViTri, &QAction::triggered, [=](){
+            bool ok;
+            QString text = QInputDialog::getText(dialog, "Cập nhật vị trí",
+                                                 "Nhập vị trí mới (VD: Kệ A - Ngăn 2):",
+                                                 QLineEdit::Normal,
+                                                 viTriHienTai, &ok);
+
+            if (ok && !text.isEmpty()) {
+                if (m_logic->CapNhatViTriSach(isbn.toStdString(), maSach.toStdString(), text.toStdString())) {
+                    table->item(currentRow, 2)->setText(text);
+                } else {
+                    QMessageBox::warning(dialog, "Lỗi", "Không cập nhật được vị trí (Lỗi Logic).");
+                }
+            }
+        });
+
+        menu.exec(table->mapToGlobal(pos));
+    });
+
+    // ===============================================================
+    // PHẦN 4: HIỂN THỊ DIALOG
+    // ===============================================================
+    QVBoxLayout *layout = new QVBoxLayout(dialog);
+    layout->addWidget(table);
+    dialog->setLayout(layout);
+
+    dialog->exec();
+    delete dialog;
+}
+// =================================================================
+// ===                  TAB QUẢN LÝ MƯỢN SÁCH                    ===
+// =================================================================
+
+// 1. TỰ ĐỘNG HIỆN THÔNG TIN SÁCH KHI GÕ ISBN (Box bên Trái)
+void MainWindow::on_lineTraCuuISBN_textChanged(const QString &isbn){
+    // Tìm đầu sách trong logic
+    DauSach* ds = m_logic->TimDauSachTheoISBN(isbn.toStdString());
+
+    if (ds != NULL) {
+        ui->lineHienThiTenSach->setText(QString::fromStdString(ds->tensach));
+        ui->lineHienThiTacGia->setText(QString::fromStdString(ds->tacgia));
+        ui->lineHienThiTheLoai->setText(QString::fromStdString(ds->theloai));
+
+        // Đếm số sách còn có thể mượn
+        int count = 0;
+        for (nodeSach* p = ds->firstDMS; p != NULL; p = p->next) {
+            if (p->sach.trangthai == SACH_CHO_MUON) count++;
+        }
+        ui->lblSoLuongCon->setText("Còn: " + QString::number(count) + " cuốn");
+    } else {
+        ui->lineHienThiTenSach->clear();
+        ui->lineHienThiTacGia->clear();
+        ui->lineHienThiTheLoai->clear();
+        ui->lblSoLuongCon->setText("Không tìm thấy ISBN");
+    }
+}
+
+// 2. NÚT KIỂM TRA ĐỘC GIẢ
+void MainWindow::on_btnKiemTraDG_Muon_clicked(){
+    // 1. Lấy dữ liệu từ ô nhập
+    QString maTheText = ui->lineMaDocGia_Muon->text();
+    QString maSachText = ui->lineMaCaBiet_Muon->text().trimmed();
+
+    treeDG node = NULL;
+
+    // 2. Logic tìm kiếm (Giữ nguyên)
+    if (!maTheText.isEmpty()) {
+        int maThe = maTheText.toInt();
+        node = m_logic->TimDocGiaTheoMa(maThe);
+    }
+    else if (!maSachText.isEmpty()) {
+        node = m_logic->TimDocGiaDangMuonSach(maSachText.toStdString());
+        if (node != NULL) {
+            ui->lineMaDocGia_Muon->setText(QString::number(node->dg.MATHE));
+        }
+    }
+    else {
+        QMessageBox::warning(this, "Thiếu thông tin", "Vui lòng nhập Mã Độc Giả hoặc Mã Sách để kiểm tra!");
+        return;
+    }
+
+    // 3. XỬ LÝ KẾT QUẢ (Đã sửa để không dùng Label)
+    if (node == NULL || node->dg.trangthai == DA_XOA) {
+        // --- KHÔNG TÌM THẤY ---
+        QMessageBox::warning(this, "Lỗi", "Không tìm thấy thông tin độc giả!");
+
+        // Reset giao diện
+        ui->lineMaDocGia_Muon->clear();
+        ui->tableSachDangMuon->setRowCount(0);
+        ui->btnChoMuon->setEnabled(false); // Khóa nút cho mượn
+    }
+    else {
+        // --- TÌM THẤY ---
+        QString hoTen = QString::fromStdString(node->dg.Ho + " " + node->dg.Ten);
+
+        // Kiểm tra trạng thái thẻ
+        if (node->dg.trangthai == THE_HOAT_DONG) {
+            // === THẺ TỐT ===
+            ui->btnChoMuon->setEnabled(true); // Mở nút cho mượn
+
+            // Hiện thông báo bao gồm cả Tên và Trạng thái
+            QMessageBox::information(this, "Thông tin độc giả",
+                                     "Họ tên: " + hoTen + "\n"
+                                                             "Trạng thái: ĐANG HOẠT ĐỘNG ✅\n"
+                                                             "Đủ điều kiện mượn sách.");
+        }
+        else {
+            // === THẺ BỊ KHÓA ===
+            ui->btnChoMuon->setEnabled(false); // Khóa nút cho mượn
+
+            // Hiện cảnh báo
+            QMessageBox::critical(this, "CẢNH BÁO",
+                                  "Họ tên: " + hoTen + "\n"
+                                                          "Trạng thái: THẺ ĐANG BỊ KHÓA ❌\n"
+                                                          "Không thể thực hiện mượn sách!");
+        }
+
+        // 4. QUAN TRỌNG: Load danh sách sách ông này đang mượn ra bảng
+        HienThiSachDangMuon(node->dg.MATHE, ui->tableSachDangMuon);
+
+        // Cập nhật ngày tháng hiện tại
+        ui->dateNgayMuon->setDate(QDate::currentDate());
+    }
+}
+
+// 3. NÚT "CHO MƯỢN" (QUAN TRỌNG)
+void MainWindow::on_btnChoMuon_clicked(){
+    m_logic->ResetUndoDocGia();
+    // --- 1. LẤY DỮ LIỆU VÀ KIỂM TRA ---
+    QString maTheStr = ui->lineMaDocGia_Muon->text();
+    QString maSach = ui->lineMaCaBiet_Muon->text().trimmed();
+
+    if(maTheStr.isEmpty()){
+        QMessageBox::warning(this, "Thiếu thông tin", "Chưa nhập mã độc giả!");
+        return;
+    }
+
+    // Kiểm tra mã thẻ có phải là số không
+    bool ok;
+    int maThe = maTheStr.toInt(&ok);
+    if (!ok) {
+        QMessageBox::warning(this, "Lỗi", "Mã độc giả phải là số!");
+        return;
+    }
+
+    if (maSach.isEmpty()) {
+        QMessageBox::warning(this, "Thiếu thông tin", "Vui lòng nhập Mã Cá Biệt sách (Vd: A100-001)");
+        return;
+    }
+
+    // --- 2. LẤY NGÀY MƯỢN ---
+    QDate qDateGiaoDien = ui->dateNgayMuon->date();
+
+    Date ngayMuonStruct;
+    ngayMuonStruct.d = qDateGiaoDien.day();
+    ngayMuonStruct.m = qDateGiaoDien.month();
+    ngayMuonStruct.y = qDateGiaoDien.year();
+
+    // --- 3. GỌI LOGIC MƯỢN ---
+    // Tìm Node
+    bool kq = m_logic->MuonSach(maThe, maSach.toStdString(), ngayMuonStruct);
+
+    // --- 4. CẬP NHẬT GIAO DIỆN NGAY LẬP TỨC ---
+    if (kq) {
+        HienThiSachDangMuon(maThe, ui->tableSachDangMuon);
+
+        ui->lineMaCaBiet_Muon->clear();
+
+        QMessageBox::information(this, "Thành công", "Đã cho mượn sách thành công!");
+    }
+}
+// =================================================================
+// ===                  TAB QUẢN LÝ TRẢ SÁCH                     ===
+// =================================================================
+
+// 1. NÚT TÌM ĐỘC GIẢ ĐỂ TRẢ
+void MainWindow::on_btnTimDG_Tra_clicked(){
+    QString maTheStr = ui->lineMaDocGia_Tra->text();
+    bool ok;
+    int maThe = maTheStr.toInt(&ok);
+
+    if (!ok) {
+        QMessageBox::warning(this, "Lỗi", "Mã thẻ phải là số!");
+        return;
+    }
+
+    treeDG dg = m_logic->TimDocGiaTheoMa(maThe);
+    if (dg != NULL) {
+        ui->lblThongTinDG_Tra->setText("Độc giả: " + QString::fromStdString(dg->dg.Ho + " " + dg->dg.Ten));
+
+        HienThiSachDangMuon(maThe, ui->tableSachCanTra);
+    } else {
+        QMessageBox::warning(this, "Lỗi", "Không tìm thấy độc giả!");
+        ui->lblThongTinDG_Tra->setText("...");
+        ui->tableSachCanTra->setRowCount(0);
+    }
+}
+
+// 2. NÚT "TRẢ SÁCH" (Thực hiện hành động)
+void MainWindow::on_btnTraSach_clicked(){
+    m_logic->ResetUndoDocGia();
+    // --- BƯỚC 1: LẤY DỮ LIỆU VÀ KIỂM TRA ĐẦU VÀO ---
+    QString maTheStr = ui->lineMaDocGia_Tra->text();
+    QString maSach = ui->lineMaSach_Tra->text().trimmed();
+
+    if (maTheStr.isEmpty() || maSach.isEmpty()) {
+        QMessageBox::warning(this, "Thiếu thông tin", "Vui lòng chọn sách cần trả từ danh sách hoặc nhập đủ thông tin!");
+        return;
+    }
+
+    // Chuyển đổi mã thẻ
+    bool ok;
+    int maThe = maTheStr.toInt(&ok);
+    if (!ok) {
+        QMessageBox::warning(this, "Lỗi", "Mã thẻ phải là số!");
+        return;
+    }
+
+    // --- BƯỚC 2: KIỂM TRA NGÀY THÁNG ---
+    QDate dMuon = ui->dateNgayMuon_Tra->date();
+    QDate dTra = ui->dateNgayTra_Tra->date();
+
+    // Logic: Không thể trả sách trước ngày đã mượn
+    if (dTra < dMuon) {
+        QMessageBox::critical(this, "Lỗi Ngày Tháng",
+                              "Ngày Trả (" + dTra.toString("dd/MM/yyyy") +
+                                  ") không thể nhỏ hơn Ngày Mượn (" + dMuon.toString("dd/MM/yyyy") + ")!");
+        return; // Dừng lại, không cho phép trả
+    }
+
+    // --- BƯỚC 3: GỌI LOGIC TRẢ SÁCH ---
+    // Chuyển đổi ngày
+    Date ngayTraStruct;
+    ngayTraStruct.d = dTra.day();
+    ngayTraStruct.m = dTra.month();
+    ngayTraStruct.y = dTra.year();
+
+    // Gọi hàm Logic (Hàm này sẽ tự xử lý khóa thẻ nếu quá hạn)
+    bool kq = m_logic->TraSach(maThe, maSach.toStdString(), ngayTraStruct);
+
+    // --- BƯỚC 4: CẬP NHẬT GIAO DIỆN NẾU THÀNH CÔNG ---
+    if (kq) {
+        // 1. Load lại bảng NGAY LẬP TỨC (Để thấy dòng đó cập nhật trạng thái)
+        HienThiSachDangMuon(maThe, ui->tableSachCanTra);
+
+        // 2. Xóa trắng các ô nhập liệu
+        ui->lineMaSach_Tra->clear();
+        ui->lineSoLuong_Tra->clear();
+
+        // 3. Reset ngày về mặc định (Năm 2000) để tránh nhầm lẫn
+        ui->dateNgayMuon_Tra->setDate(QDate(2000, 1, 1));
+        ui->dateNgayHen_Tra->setDate(QDate(2000, 1, 1));
+
+        // 4. Hiện thông báo thành công
+        QMessageBox::information(this, "Thành công", "Đã trả sách thành công!");
+    }
+}
+
+// =================================================================
+// ===                  CÁC HÀM HỖ TRỢ CHUNG                     ===
+// =================================================================
+
+void MainWindow::HienThiSachDangMuon(int maThe, QTableWidget *table){
+    nodeMT* listMT[100];
+    int n = 0;
+    m_logic->LayDanhSachDangMuon(maThe, listMT, n);
+
+    table->setRowCount(0);
+
+    // --- 1. SETUP HEADER ---
+    if (table->columnCount() < 6) {
+        table->setColumnCount(6);
+        table->setHorizontalHeaderLabels({"Mã ĐG", "Mã Sách", "Tên Sách", "Ngày Mượn", "Ngày Hẹn Trả", "Trạng Thái"});
+
+        table->horizontalHeader()->setSectionResizeMode(0, QHeaderView::ResizeToContents);
+        table->horizontalHeader()->setSectionResizeMode(1, QHeaderView::ResizeToContents);
+        table->horizontalHeader()->setSectionResizeMode(2, QHeaderView::Stretch);
+        table->horizontalHeader()->setSectionResizeMode(3, QHeaderView::ResizeToContents);
+        table->horizontalHeader()->setSectionResizeMode(4, QHeaderView::ResizeToContents);
+        table->horizontalHeader()->setSectionResizeMode(5, QHeaderView::ResizeToContents);
+    }
+
+    // --- 2. ĐIỀN DỮ LIỆU ---
+    for (int i = 0; i < n; i++) {
+        table->insertRow(i);
+
+        // Cột 0: Mã ĐG
+        table->setItem(i, 0, new QTableWidgetItem(QString::number(maThe)));
+
+        // Cột 1: Mã Sách
+        QString maSach = QString::fromStdString(listMT[i]->mt.MASACH);
+        table->setItem(i, 1, new QTableWidgetItem(maSach));
+
+        // Cột 2: Tên Sách
+        table->setItem(i, 2, new QTableWidgetItem(LayTenSachTuMaCaBiet(maSach)));
+
+        // --- Cột 3: Ngày Mượn ---
+        Date nm = listMT[i]->mt.NgayMuon;
+        QString strNgayMuon = QString("%1/%2/%3")
+                                  .arg(nm.d, 2, 10, QChar('0'))
+                                  .arg(nm.m, 2, 10, QChar('0'))
+                                  .arg(nm.y);
+        table->setItem(i, 3, new QTableWidgetItem(strNgayMuon));
+
+        // --- Cột 4: Ngày Hẹn Trả (MỚI THÊM) ---
+        // Tính toán: Ngày mượn + 7 ngày
+        Date hanTra = nm;
+        hanTra.d += 7;
+        Doi_Ngay_Thang_Nam(hanTra);
+
+        QString strHanTra = QString("%1/%2/%3")
+                                .arg(hanTra.d, 2, 10, QChar('0'))
+                                .arg(hanTra.m, 2, 10, QChar('0'))
+                                .arg(hanTra.y);
+        table->setItem(i, 4, new QTableWidgetItem(strHanTra));
+
+        // --- Cột 5: Trạng thái ---
+        if (KTQuaHan(nm)) {
+            QTableWidgetItem* item = new QTableWidgetItem("QUÁ HẠN");
+            item->setForeground(Qt::red);
+            item->setFont(QFont("Arial", 10, QFont::Bold));
+            table->setItem(i, 5, item);
+        } else {
+            QTableWidgetItem* item = new QTableWidgetItem("Đang mượn");
+            item->setForeground(Qt::darkGreen);
+            table->setItem(i, 5, item);
+        }
+    }
+}
+
+QString MainWindow::LayTenSachTuMaCaBiet(QString maCaBiet){
+    // Cắt chuỗi để lấy ISBN. Vd: "978604-001" -> Lấy "978604"
+    int index = maCaBiet.indexOf('-');
+    if (index == -1) return "KXD";
+
+    std::string isbn = maCaBiet.left(index).toStdString();
+    DauSach* ds = m_logic->TimDauSachTheoISBN(isbn);
+    if (ds) return QString::fromStdString(ds->tensach);
+    return "Không tìm thấy tên";
+}
+
+void MainWindow::on_tableSachCanTra_cellClicked(int row, int column){
+    // 1. Lấy dữ liệu từ bảng
+    QString maSach = ui->tableSachCanTra->item(row, 1)->text();
+    QString strNgayMuon = ui->tableSachCanTra->item(row, 3)->text();
+    QString strHanTra = ui->tableSachCanTra->item(row, 4)->text();
+
+    // 2. Điền Mã Sách và Số lượng
+    ui->lineMaSach_Tra->setText(maSach);
+    ui->lineSoLuong_Tra->setText("1");
+
+    // 3. Chuyển đổi ngày tháng
+    QDate dateMuon = QDate::fromString(strNgayMuon, "dd/MM/yyyy");
+    QDate dateHan = QDate::fromString(strHanTra, "dd/MM/yyyy");
+
+    // 4. Điền lên các ô DateEdit
+    ui->dateNgayMuon_Tra->setDate(dateMuon);
+    ui->dateNgayHen_Tra->setDate(dateHan);
+
+    // 5. Tự động điền Ngày Trả = Ngày Hẹn Trả (Yêu cầu của bạn)
+    ui->dateNgayTra_Tra->setDate(dateHan);
+
+    // 6. Mở khóa ô để sửa
+    ui->dateNgayTra_Tra->setReadOnly(false);
+}
+
+void MainWindow::on_btnKiemTra_Tra_clicked(){
+    // 1. Lấy thông tin đầu vào
+    QString maTheStr = ui->lineMaDocGia_Tra->text();
+    QString maSach = ui->lineMaSach_Tra->text().trimmed();
+
+    if (maTheStr.isEmpty() || maSach.isEmpty()) {
+        QMessageBox::warning(this, "Thiếu thông tin", "Vui lòng nhập Mã Độc Giả và Mã Sách!");
+        return;
+    }
+
+    int maThe = maTheStr.toInt();
+
+    // 2. Tìm Độc Giả & Sách đang mượn
+    treeDG dg = m_logic->TimDocGiaTheoMa(maThe);
+    if (dg == NULL) {
+        QMessageBox::warning(this, "Lỗi", "Không tìm thấy độc giả!");
+        return;
+    }
+
+    nodeMT* nodeMuon = NULL;
+    for (nodeMT* p = dg->dg.firstMT; p != NULL; p = p->next) {
+        if (p->mt.MASACH == maSach && p->mt.trangthai == MT_DANG_MUON) {
+            nodeMuon = p; break;
+        }
+    }
+
+    if (nodeMuon == NULL) {
+        QMessageBox::warning(this, "Lỗi", "Độc giả này KHÔNG đang mượn cuốn sách " + maSach);
+        ui->dateNgayMuon_Tra->clear();
+        ui->dateNgayHen_Tra->clear();
+        return;
+    }
+
+    // 3. LẤY THÔNG TIN NGÀY MƯỢN & HẠN TRẢ TỪ DỮ LIỆU GỐC
+    Date nm = nodeMuon->mt.NgayMuon;
+    QDate qDateMuon(nm.y, nm.m, nm.d);
+    QDate qDateHenTra = qDateMuon.addDays(7); // Hạn trả chuẩn
+
+    // Hiển thị lên giao diện (Read Only)
+    ui->dateNgayMuon_Tra->setDate(qDateMuon);
+    ui->dateNgayHen_Tra->setDate(qDateHenTra);
+
+    // 4. XỬ LÝ NGÀY TRẢ
+    QDate qDateTraHienTai = ui->dateNgayTra_Tra->date();
+
+    if (qDateTraHienTai.year() == 2000) {
+        ui->dateNgayTra_Tra->setDate(qDateHenTra);
+        qDateTraHienTai = qDateHenTra;
+    }
+
+    ui->dateNgayTra_Tra->setReadOnly(false); // Mở khóa để sửa tiếp nếu muốn
+
+    // 5. TÍNH TOÁN QUÁ HẠN & XỬ LÝ KHÓA THẺ
+    QString thongBao = "Đã tìm thấy dữ liệu mượn.\n";
+    thongBao += "Hạn trả: " + qDateHenTra.toString("dd/MM/yyyy") + "\n";
+    thongBao += "Ngày trả bạn chọn: " + qDateTraHienTai.toString("dd/MM/yyyy") + "\n\n";
+
+    // So sánh ngày bạn chọn vs Hạn trả
+    int soNgayTre = qDateHenTra.daysTo(qDateTraHienTai);
+
+    if (soNgayTre > 0){
+        // === TRƯỜNG HỢP QUÁ HẠN ===
+        thongBao += "⚠️ TÌNH TRẠNG: QUÁ HẠN " + QString::number(soNgayTre) + " NGÀY!\n";
+        thongBao += "🔴 HỆ THỐNG ĐÃ TỰ ĐỘNG KHÓA THẺ ĐỘC GIẢ NÀY.";
+
+        // --- THỰC HIỆN KHÓA NGAY LẬP TỨC ---
+        dg->dg.trangthai = THE_KHOA;
+
+        // Cập nhật lại giao diện Tab Độc Giả để thấy ngay trạng thái "Bị Khóa"
+        capNhatBangDocGia();
+
+    } else{
+        // === TRƯỜNG HỢP ĐÚNG HẠN ===
+        thongBao += "✅ Tình trạng: Đúng hạn (hoặc trả sớm).";
+    }
+    QMessageBox::information(this, "Kết quả kiểm tra", thongBao);
+}
+void MainWindow::on_btnThongKeQuaHan_clicked(){
+    // 1. Chuẩn bị mảng hứng dữ liệu
+    DocGiaQuaHan danhSachQH[MAX_DAUSACH];
+    int soLuong = 0;
+
+    // 2. Lấy ngày mốc từ giao diện
+    QDate qDate = ui->dateMocThoiGian->date();
+
+    Date ngayMoc;
+    ngayMoc.d = qDate.day();
+    ngayMoc.m = qDate.month();
+    ngayMoc.y = qDate.year();
+
+    // 3. GỌI HÀM LOGIC
+    m_logic->LayDanhSachQuaHan(danhSachQH, soLuong, ngayMoc);
+
+    // 4. Setup bảng hiển thị
+    ui->tableQuaHan->setRowCount(0);
+
+    if (ui->tableQuaHan->columnCount() < 4){
+        ui->tableQuaHan->setColumnCount(4);
+        ui->tableQuaHan->setHorizontalHeaderLabels({"Mã ĐG", "Họ Tên", "Trạng Thái Thẻ", "Số Ngày Quá Hạn (Max)"});
+        ui->tableQuaHan->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
+    }
+
+    // 5. Đổ dữ liệu vào bảng
+    if (soLuong == 0){
+        QMessageBox::information(this, "Thông báo", "Tuyệt vời! Không có độc giả nào vi phạm tính đến ngày " + qDate.toString("dd/MM/yyyy"));
+        return;
+    }
+
+    for (int i = 0; i < soLuong; i++){
+        ui->tableQuaHan->insertRow(i);
+        ui->tableQuaHan->setItem(i, 0, new QTableWidgetItem(QString::number(danhSachQH[i].dg->MATHE)));
+
+        QString hoTen = QString::fromStdString(danhSachQH[i].dg->Ho + " " + danhSachQH[i].dg->Ten);
+        ui->tableQuaHan->setItem(i, 1, new QTableWidgetItem(hoTen));
+
+        QString trangThai = (danhSachQH[i].dg->trangthai == THE_KHOA) ? "Đã Bị Khóa" : "Đang Hoạt Động";
+        QTableWidgetItem* itemStatus = new QTableWidgetItem(trangThai);
+        if (danhSachQH[i].dg->trangthai == THE_KHOA){
+            itemStatus->setForeground(Qt::red);
+            itemStatus->setFont(QFont("Arial", 9, QFont::Bold));
+        }
+        ui->tableQuaHan->setItem(i, 2, itemStatus);
+
+        QTableWidgetItem* itemNgay = new QTableWidgetItem(QString::number(danhSachQH[i].soNgayMax) + " ngày");
+        itemNgay->setForeground(Qt::red);
+        itemNgay->setFont(QFont("Arial", 10, QFont::Bold));
+        itemNgay->setTextAlignment(Qt::AlignCenter);
+        ui->tableQuaHan->setItem(i, 3, itemNgay);
+    }
+}
+
+void MainWindow::on_dateNgayMuon_dateChanged(const QDate &date){
+    ui->dateNgayHenTra->setDate(date.addDays(7));
+}
+
+void MainWindow::on_btnTop10Sach_clicked(){
+    // 1. Chuẩn bị mảng hứng dữ liệu
+    DauSach* top10[10]; // Chỉ cần mảng 10 phần tử
+    int soLuong = 0;
+
+    // 2. Gọi Logic (Hàm này đã sắp xếp giảm dần theo lượt mượn)
+    m_logic->LayTop10SachMuonNhieuNhat(top10, soLuong);
+
+    // 3. Setup bảng hiển thị
+    ui->tableTop10->setRowCount(0);
+
+    if (ui->tableTop10->columnCount() < 4) {
+        ui->tableTop10->setColumnCount(4);
+        ui->tableTop10->setHorizontalHeaderLabels({"ISBN", "Tên Sách", "Tác Giả", "Lượt Mượn"});
+
+        // Căn chỉnh cột cho đẹp
+        ui->tableTop10->horizontalHeader()->setSectionResizeMode(0, QHeaderView::ResizeToContents);
+        ui->tableTop10->horizontalHeader()->setSectionResizeMode(1, QHeaderView::Stretch);
+        ui->tableTop10->horizontalHeader()->setSectionResizeMode(2, QHeaderView::Stretch);
+        ui->tableTop10->horizontalHeader()->setSectionResizeMode(3, QHeaderView::ResizeToContents);
+    }
+
+    // 4. Đổ dữ liệu vào bảng
+    if (soLuong == 0){
+        QMessageBox::information(this, "Thông báo", "Thư viện chưa có dữ liệu mượn nào.");
+        return;
+    }
+
+    for (int i = 0; i < soLuong; i++){
+        ui->tableTop10->insertRow(i);
+
+        // Cột 0: ISBN
+        ui->tableTop10->setItem(i, 0, new QTableWidgetItem(QString::fromStdString(top10[i]->ISBN)));
+
+        // Cột 1: Tên Sách
+        ui->tableTop10->setItem(i, 1, new QTableWidgetItem(QString::fromStdString(top10[i]->tensach)));
+
+        // Cột 2: Tác Giả
+        ui->tableTop10->setItem(i, 2, new QTableWidgetItem(QString::fromStdString(top10[i]->tacgia)));
+
+        // Cột 3: Lượt Mượn (In đậm, màu xanh cho nổi bật)
+        QTableWidgetItem* itemLuotMuon = new QTableWidgetItem(QString::number(top10[i]->luotmuon));
+        itemLuotMuon->setForeground(Qt::blue);
+        itemLuotMuon->setFont(QFont("Arial", 11, QFont::Bold));
+        itemLuotMuon->setTextAlignment(Qt::AlignCenter);
+        ui->tableTop10->setItem(i, 3, itemLuotMuon);
+    }
+}
+
+void MainWindow::on_btnBaoMatSach_clicked(){
+    // Lấy thông tin
+    QString maTheStr = ui->lineMaDocGia_Tra->text();
+    QString maSach = ui->lineMaSach_Tra->text();
+
+    if (maTheStr.isEmpty() || maSach.isEmpty()){
+        QMessageBox::warning(this, "Thiếu thông tin", "Vui lòng chọn sách cần báo mất!");
+        return;
+    }
+
+    // Xác nhận lại cho chắc chắn (Vì mất sách là sự cố lớn)
+    QMessageBox::StandardButton reply;
+    reply = QMessageBox::question(this, "Xác nhận",
+                                  "Bạn có chắc chắn báo MẤT cuốn sách " + maSach + " không?\n"
+                                                                                                "Thẻ độc giả sẽ bị khóa ngay lập tức.",
+                                  QMessageBox::Yes|QMessageBox::No);
+
+    if (reply == QMessageBox::No) return;
+
+    // Gọi Logic Báo Mất
+    bool kq = m_logic->BaoMatSach(maTheStr.toInt(), maSach.toStdString());
+
+    // Cập nhật lại bảng
+    if (kq){
+        HienThiSachDangMuon(maTheStr.toInt(), ui->tableSachCanTra);
+        ui->lineMaSach_Tra->clear();
+        ui->lineSoLuong_Tra->clear();
+        ui->dateNgayMuon_Tra->clear();
+        ui->dateNgayHen_Tra->clear();
+    }
+}
