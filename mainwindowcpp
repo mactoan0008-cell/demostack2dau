@@ -484,3 +484,4 @@ void MainWindow::on_btnTop10Sach_clicked(){
 void MainWindow::hienThiThongBao(QString message){
     QMessageBox::information(this, "Thong Bao", message);
 }
+
